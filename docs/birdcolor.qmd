@@ -1,0 +1,254 @@
+---
+title: "Illustrative example: Bird color and phylogenetic GLMMs"
+author: "C. Williams"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc-location: left
+    toc-depth: 2
+    theme: cosmo
+    embed-resources: true
+    code-fold: show
+    code-tools: true
+    number-sections: true
+editor_options: 
+  chunk_output_type: console
+editor: visual
+---
+
+```{r setup}
+#| output: false
+#| warning: false
+#| label: packages
+#| code-overflow: wrap
+#| code-fold: true
+
+pacman::p_load(
+  rmarkdown, readr, dplyr, purrr, splitstackshape, tidyverse, tidyr, ggplot2,
+  vroom, details, sessioninfo, devtools, readxl, forcats, stringr, ape, phytools, 
+  geiger, data.table, pavo
+)
+
+options(digits = 3, scipen = 5)
+```
+
+# Background
+
+What evolutionary processes have led to current color distribution in birds? With this analysis we can understand whether the coloration patterns are a result of factors such as sexual selection, predation pressure, or habitat preferences, among others. Furthermore, it can guide future research and experiments by suggesting specific evolutionary questions to investigate.
+
+# Data overview
+
+Load data and phylogenetic tree
+
+```{r}
+# Load bird spectrum data 
+bird_data <- read_delim("data/Spec_IndivReg_Coralie.csv", 
+    delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ","), 
+    trim_ws = TRUE)
+
+# summary of birds species and genus
+length(table(bird_data$genus_original)) # 446 genus
+length(table(bird_data$sci_name_Jetz)) # 949 species
+#length(table(bird_data$sci_name_original)) # 952 original species
+
+### Notes
+# individuals a-c are make and d-f are female
+#table(bird_data$sex, bird_data$individual)
+
+# number of measurements?
+#table(bird_data$Nmeasured)
+
+# duplicates per individual per body region
+#dup <- dat |>
+#    summarise(n = n(), 
+#              .by = c(wl, individual_nonrep, sex, body_region))
+#r <- dup[which(dup$n>1),]
+#table(r$individual_nonrep)
+
+# Remove the specified species from bird_data
+bird_data <- bird_data |> 
+  filter(!sci_name_Jetz %in% c("Basileuterus_rufifrons", "Malurus_lamberti", "Malurus_splendens"))
+```
+
+### Questions:
+
+-   What is the spectral values (i.e. is it reflectance)? Are they normalised?
+
+-   What is Nmeasured? most have 5, there is one 1 and 4 values of 4
+
+-   One measurement per individual, per body region?
+
+-   These species seem to have two measurements per body region per individual:
+
+    ```         
+    Basileuterus_rufifrons, Malurus_lamberti, Malurus_splendens
+    ```
+
+## Phylogenetic tree set-up
+
+```{r}
+# Load bird tree (consensus tree = "combined tree")
+bird.tree <- read.tree("data/Stage2_Hackett_MCC_no_neg.tre")
+
+### Prune bird tree
+bird.pruned <- keep.tip(bird.tree, bird_data$sci_name_Jetz)
+# check whether names match in data and tree
+check <- name.check(bird.pruned, bird_data$sci_name_Jetz, sort(bird.pruned$tip.label))
+
+# plot tree
+plotTree(bird.pruned, ftype="i", fsize=0.4, lwd=1, type="fan")
+
+```
+
+```{r}
+########################################## 
+# random code ---- testing on other dataset
+df <- t(read.csv("http://openmv.net/file/tablet-spectra.csv", header = FALSE))
+df <- df[-1, ]
+df <- apply(df, 2, as.numeric)
+df <- cbind(wl = seq_len(nrow(df)),df)
+
+df <- as.rspec(df)
+#> wavelengths found in column 1
+
+plot(df, ylab = "Absorbance", col = rainbow(3))
+########################################################################
+```
+
+## Color data set-up
+
+### (1) Obtain wavelength dataset
+
+```{r}
+# set up wavelength dataset (wavelengths columns 300 to 474)
+dat <- bird_data |> 
+  pivot_longer(cols = `300`:`700`, names_to="wl", values_to="refl") |> 
+  select(individual_nonrep, body_region, sex, wl, refl) |> 
+  mutate(wl = as.numeric(wl))
+
+# pivot so each column is an individual body region measurement
+dat2 <- dat |> 
+  pivot_wider(names_from = c("individual_nonrep", "sex", "body_region"),
+              values_from = "refl", names_sep = ".")
+
+# create spectral dataset with pavo
+specs <- as.rspec(dat2)
+
+# example one bird, one body region
+plot(Acrocephalus_palustris_a.Male.throat ~ wl, type="l", data=specs)
+plot(Alle_alle_a.Male.throat ~ wl, type="l", data=specs)
+
+
+# create a vector with species identity names
+spp <- gsub("\\_[a-f]\\..*$", "", names(specs))[-1]
+table(spp)
+
+# aggregate species by mean value
+sppspec <- aggspec(specs, by = spp, FUN = mean)
+round(sppspec[1:5, 1:5], 2)
+
+
+
+# should I use procspec??? Looks already normalised
+# plotsmooth(specs[,1:7],
+#   minsmooth = 0.05,
+#   maxsmooth = 0.5,
+#   curves = 4,
+#   ask = FALSE
+# )
+#spec.dat.norm <- procspec(specs)
+
+
+
+
+```
+
+### (2) Obtain spectral shape descriptors
+
+```{r}
+# Obtain spectral shape descriptors: https://book.colrverse.com/spectral-shape-descriptors.html
+spec.des <- summary(spec.dat, subset = c("B1", "S1", "S9", "H4"))
+
+# distribution of shape descriptors
+hist(spec.des$B1)
+hist(spec.des$S1)
+hist(spec.des$S9)
+hist(spec.des$H4)
+
+```
+
+### (3) Obtain visual models
+
+```{r}
+# average ultraviolet-sensitive avian (tetrachromat)
+vis.avian.avg <- vismodel(specs, visual="avg.uv")
+# the blue tit Cyanistes caeruleus (tetrachromat)
+vis.bluetit <- vismodel(specs, visual="bluetit")
+
+# distribution of descriptors
+hist(vis.bluetit$u)
+hist(vis.bluetit$s)
+hist(vis.bluetit$m)
+hist(vis.bluetit$l)
+```
+
+### (4) Formatting data for modelling
+
+```{r}
+spec.des$rowname <- rownames(spec.des)
+
+spec.dat <- spec.des |> 
+  mutate(sex = case_when(
+    grepl("Male", rowname) ~ "male",
+    grepl("Female", rowname) ~ "female"),
+    species = gsub("\\_[a-f]\\..*$", "", rowname),
+    body_region = str_extract(rowname, "[a-z]+$")
+  ) 
+```
+
+# Modelling
+
+```{r}
+# function to get run time 
+rtime <- function(...) unname(system.time(capture.output(...))["elapsed"])
+
+```
+
+## (1) Brightness
+
+```{r}
+# set up phylogenetic correlation matrix
+phylo.mat <- vcv(bird.pruned, corr = TRUE) 
+phylo.mat <- phylo.mat[sort(rownames(phylo.mat)), sort(rownames(phylo.mat))]
+
+# checks   
+#length(colnames(phylo.mat))==length(table(spec.dat$species))
+# head(rownames(phylo.mat))
+# head(colnames(phylo.mat))
+# head(table(spec.dat$species))
+
+                                    
+##### glmmTMB model -----------------------------
+library(glmmTMB)
+spec.dat$g <- 1
+
+## model 1 - gaussian response
+time.glmmTMB <- rtime(mod1.b <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))
+
+fit.glmmTMB <- summary(mod1.b)
+AIC(mod1.b)
+
+coefs_tmb <- as.data.frame(confint(mod1.b, parm="beta_"))
+re_tmb <- as.data.frame(confint(mod1.b, parm="theta_"))
+
+
+## model 2 - gaussian response
+time.glmmTMB <- rtime(mod2.b <- glmmTMB(log(B1+7) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))
+
+fit.glmmTMB <- summary(mod2.b)
+AIC(mod2.b)
+
+coefs_tmb <- as.data.frame(confint(mod2.b, parm="beta_"))
+re_tmb <- as.data.frame(confint(mod2.b, parm="theta_"))
+```
