@@ -75,7 +75,7 @@ bird_data <- bird_data |>
 
 -   What is the spectral values (i.e. is it reflectance)? Are they normalised?
 
--   What is Nmeasured? most have 5, there is one 1 and 4 values of 4
+-   What is Nmeasured? most have 5, there is one 1 and 4 values of 4 =\> number of measurements per patch. Each body region measured 5 times (then averaged).
 
 -   One measurement per individual, per body region?
 
@@ -150,6 +150,7 @@ round(sppspec[1:5, 1:5], 2)
 
 
 
+
 # should I use procspec??? Looks already normalised
 # plotsmooth(specs[,1:7],
 #   minsmooth = 0.05,
@@ -159,16 +160,30 @@ round(sppspec[1:5, 1:5], 2)
 # )
 #spec.dat.norm <- procspec(specs)
 
-
+# automatically correct - by shifting or trimming
+# negative values can be due to darker colors
+# look at addmin argument in procspec
 
 
 ```
 
 ### (2) Obtain spectral shape descriptors
 
+-   Focus on Brightness and Saturation
+
+-   
+
 ```{r}
 # Obtain spectral shape descriptors: https://book.colrverse.com/spectral-shape-descriptors.html
-spec.des <- summary(spec.dat, subset = c("B1", "S1", "S9", "H4"))
+spec.des <- summary(specs, subset = c("B1", "B2", "S1U", "S5", "S9", "H4"))
+spec.des <- summary(specs)
+
+# Add S1U - ultrabiolet
+
+# Format H4 (Hue) - add 2pi to negative
+spec.des <- 
+
+
 
 # distribution of shape descriptors
 hist(spec.des$B1)
@@ -191,9 +206,16 @@ hist(vis.bluetit$u)
 hist(vis.bluetit$s)
 hist(vis.bluetit$m)
 hist(vis.bluetit$l)
+
+# TCS - color space model to get shape descriptors 
+# provides three parameters (R= color saturation, H+theta= like a Hue (H4), H5 = amount of ultraviolet)
 ```
 
 ### (4) Formatting data for modelling
+
+Most morphological traits need to be log-ed (due to evolutionary; most traits evolve by multiplying rather then additive). =\> create new variable.
+
+Check predictors if they need to be centered.
 
 ```{r}
 spec.des$rowname <- rownames(spec.des)
@@ -205,6 +227,8 @@ spec.dat <- spec.des |>
     species = gsub("\\_[a-f]\\..*$", "", rowname),
     body_region = str_extract(rowname, "[a-z]+$")
   ) 
+
+save(spec.dat, file="data/spec_data_for_model.csv")
 ```
 
 # Modelling
@@ -213,11 +237,15 @@ spec.dat <- spec.des |>
 # function to get run time 
 rtime <- function(...) unname(system.time(capture.output(...))["elapsed"])
 
+# load data
+#spec.dat <- read_csv("data/spec_data_for_model.csv")
 ```
 
 ## (1) Brightness
 
 ```{r}
+
+
 # set up phylogenetic correlation matrix
 phylo.mat <- vcv(bird.pruned, corr = TRUE) 
 phylo.mat <- phylo.mat[sort(rownames(phylo.mat)), sort(rownames(phylo.mat))]
@@ -233,7 +261,7 @@ phylo.mat <- phylo.mat[sort(rownames(phylo.mat)), sort(rownames(phylo.mat))]
 library(glmmTMB)
 spec.dat$g <- 1
 
-## model 1 - gaussian response
+## model 1 - gaussian response (time: 60.35 seconds)
 time.glmmTMB <- rtime(mod1.b <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))
 
 fit.glmmTMB <- summary(mod1.b)
@@ -243,7 +271,7 @@ coefs_tmb <- as.data.frame(confint(mod1.b, parm="beta_"))
 re_tmb <- as.data.frame(confint(mod1.b, parm="theta_"))
 
 
-## model 2 - gaussian response
+## model 2 - gaussian response (time: 55.22 seconds)
 time.glmmTMB <- rtime(mod2.b <- glmmTMB(log(B1+7) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))
 
 fit.glmmTMB <- summary(mod2.b)
@@ -251,4 +279,26 @@ AIC(mod2.b)
 
 coefs_tmb <- as.data.frame(confint(mod2.b, parm="beta_"))
 re_tmb <- as.data.frame(confint(mod2.b, parm="theta_"))
+
+
+
+## model 3 - negative binomial response (time: 55.22 seconds)
+time.glmmTMB <- rtime(mod2.b <- glmmTMB(log(B1+7) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))
+
+fit.glmmTMB <- summary(mod2.b)
+AIC(mod2.b)
+
+coefs_tmb <- as.data.frame(confint(mod2.b, parm="beta_"))
+re_tmb <- as.data.frame(confint(mod2.b, parm="theta_"))
+
+
+## model 4 - add sex in
+time.glmmTMB <- rtime(mod2.b <- glmmTMB(log(B1+7) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))
+
+fit.glmmTMB <- summary(mod2.b)
+AIC(mod2.b)
+
+coefs_tmb <- as.data.frame(confint(mod2.b, parm="beta_"))
+re_tmb <- as.data.frame(confint(mod2.b, parm="theta_"))
+
 ```

@@ -1,0 +1,15 @@
+#!/bin/bash
+	
+#PBS -N pglmm_sim
+#PBS -l select=1:ncpus=2:mem=4gb
+#PBS -l walltime=00:45:00
+#PBS -J 1-2000
+
+#working direction
+cd /srv/scratch/z5394590/squid2024/
+
+module purge
+module add r/4.3.1
+module add glpk
+
+Rscript sim_simple.R

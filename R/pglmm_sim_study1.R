@@ -107,8 +107,8 @@ for (j in 1:n_cond) {
     
     #### Simulate data ------------------------------------------------------
     
-    ### k.obs - number of observations per species (left skewed distribution)
-    k.obs <- round(rbeta(n = cond$k.species, shape1 = 1.5, shape2 = 3) * 99) + 1
+    ### k.obs - number of observations per species (left skewed distribution) ###### need to update this for balanced vs unbalanced design 
+    k.obs <- round(rbeta(n = cond$k.species, shape1 = 1.25, shape2 = 3) * 99) + 1
     
     ### create species id variable
     sp.id <- rep(seq_len(cond$k.species), times=k.obs)
@@ -117,13 +117,13 @@ for (j in 1:n_cond) {
     n <- length(sp.id)
     
     ### simulate simple dataframe with covariate (x) variable
-    x <- runif(n, 10, 20) 
+    x <- runif(n, 10, 20) ########CHANGE THIS? To rnorm???? ----> what is the consequence - probably none?
     dat <- data.frame(obs = 1:n, x = x, species = sp.id)
     
     ### simulate tree and obtain phylo matrix
     tree <- rtree(cond$k.species, tip.label = seq_len(cond$k.species))
     tree <- compute.brlen(tree, power=1) 
-    phylo.mat <- vcv(tree, corr = TRUE) ##covariance matrix for meta-analysis, correlation
+    phylo.mat <- vcv(tree, corr = TRUE) ## we want correlation matrix (bounded by -1 and 1)
     phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(rownames(phylo.mat)))]
     
     
@@ -139,106 +139,117 @@ for (j in 1:n_cond) {
     
     ### append all to dataframe
     dat <- cbind(dat, u.n, u.p, ei, b0, b1, yi)
-    
     # create phylo variable 
     dat$phylo <- dat$species
     # format species variable for models
     dat$species <- factor(dat$species)
+    # create sp variable (for phyr)
+    dat$sp <- dat$species 
+    # add variable g (for glmmTMB)
+    dat$g <- 1
+    
+    # save simulated data as R file
+    save(list = "dat", file = paste0("data/simdat_", job, ".RDATA"))
     
     
     #### Run models ------------------------------------------------------
     
     
     ### phyr model ###
-  
-    # create sp variable
-    dat$sp <- dat$species 
     
     # pglmm model - (1 | sp__) will construct two random terms, 
     # one with phylogenetic covariance matrix and another with 
     # non-phylogenetic (identity) matrix. Phylogenetic correlations 
     # can be dropped by removing the __ underscores.
-    time.phyr <- rtime(model_phyr <- pglmm(
-      yi ~ x + (1|sp__), cov_ranef = list(sp = tree),
-      data=dat,
-      REML=TRUE))
+    time.phyr <- rtime(model_phyr <- pglmm(yi ~ x + (1|sp__),
+                                           cov_ranef = list(sp = tree),
+                                           data=dat,
+                                           REML=TRUE))
+    fit.pglmm <- summary(model_phyr)
     
-    #fit.pglmm <- summary(model_phyr)
     
     
     ### glmmTMB model ###
+    # allows for same random effect names for propto
     
-    # add variable g
-    dat$g <- 1
-    # run model with propto
     time.glmmTMB <- rtime(model_glmmTMB <- glmmTMB(
-      yi ~ x + (1|species) + propto(0 + species|g,phylo.mat),
+      yi ~ x + (1|species) + propto(0 + species|g,phylo.mat), #phylo.mat is the correlation matrix
       data = dat,
-      REML=TRUE))
+      REML=TRUE
+    ))
     
     fit.glmmTMB <- summary(model_glmmTMB)
-    #VCV.TMB <- VarCorr(model_glmmTMB)
-    #VCV.TMB$cond$g
-    
+    tmb.conv <- fit.glmmTMB$sdr$pdHess # save whether model has converged 
+
     
     
     
     ### brms model ###
     # brms does not allow for duplicated group-level effects
     
-    # Run full model 
     time.brms <- rtime(model_brm <- brm(
-      yi ~ x + (1|species) + (1|gr(phylo, cov = phylo.mat)),
+      yi ~ x + (1|species) + (1|gr(phylo, cov = phylo.mat)), #phylo.mat is the correlation matrix
       data = dat,
       family = gaussian(),
-      chains=2,
-      cores=8,
+      chains=4, #default
+      iter=2000,#default
+      cores=4,  #equal to number of chains
       data2 = list(phylo.mat = phylo.mat)
     ))
     
     fit.brms <- summary(model_brm)
-    
-    
+    brms.R2 <- bayes_R2(model_brm)
+    brms.ESS <- effective_sample(model_brm)$ESS
+    #brms.bulk_ESS_fixed <- fit.brms$fixed$Bulk_ESS ---- this is different to the above, why??
+    brms.bulk_ESS_species <- fit.brms$random$species$Bulk_ESS
+    brms.bulk_ESS_phylo <- fit.brms$random$phylo$Bulk_ESS
     
     
     ### MCMCglmm model ###
     
     # get precision phylo matrix and order rows
     phylo.prec.mat <- inverseA(tree, nodes = "TIPS", scale = TRUE)$Ainv
-    phylo.prec.mat <- phylo.prec.mat[order(as.numeric(rownames(phylo.prec.mat))), order(as.numeric(rownames(phylo.prec.mat)))]
+    phylo.prec.mat <- phylo.prec.mat[order(as.numeric(rownames(phylo.prec.mat))),
+                                     order(as.numeric(rownames(phylo.prec.mat)))]
 
-    # set priors with two random effects
+    # set recommended priors with two random effects
     prior <- list(G=list(G1=list(V=1,nu=1,alpha.mu=0,alpha.V=1000), 
                          G2=list(V=1,nu=1,alpha.mu=0,alpha.V=1000)),
                   R=list(V=1,nu=0.02))
     
     # run model
-    time.mcmc <- rtime(model_mcmc <- MCMCglmm(
-      yi~x, random=~species+phylo,
-      family="gaussian", 
-      ginverse=list(phylo=phylo.prec.mat),
-      prior=prior, data=dat, nitt=13000,
-      burnin=3000, thin=10))
+    time.mcmc <- rtime(model_mcmc <- MCMCglmm(yi~x, 
+                                              random=~species+phylo,
+                                              family="gaussian", 
+                                              ginverse=list(phylo=phylo.prec.mat),
+                                              prior=prior, 
+                                              data=dat, 
+                                              nitt=13000, #default
+                                              burnin=3000,#default
+                                              thin=10))   #default
     
     fit.mcmc <- summary(model_mcmc)
+    effective_sample(model_mcmc)$ESS
+    fit.mcmc$Gcovariances$eff.samp
+    
     
     
     
     ### INLA model ###
-    
     # only allows for one covariate name per f()-term
     
-    # set up penalizing complexity priors (FOR NOW DON'T ADD)
-    #pcprior = list(prec = list(prior="pc.prec", param = c(20, 0.1)))
+    # set up recommended penalizing complexity priors 
+    pcprior = list(prec = list(prior="pc.prec", param = c(20, 0.1)))
     
     # run model (use generic0)
-    time.inla <- rtime(model_inla <- inla(
-      yi ~ x + f(species, model = "iid") + 
-        f(phylo, model = "generic0",
-          Cmatrix = phylo.prec.mat),
-      family = "gaussian",
-      data = dat))
-    
+    time.inla <- rtime(model_inla <- inla(yi ~ x +
+                                            f(species, model = "iid") + 
+                                            f(phylo,
+                                              model = "generic0",
+                                              Cmatrix = phylo.prec.mat,
+                                              hyper=pcprior),
+                                          family = "gaussian",
+                                          data = dat))
     fit.inla <- summary(model_inla)
     
     
@@ -264,28 +275,26 @@ for (j in 1:n_cond) {
     
     
     
-    #---- Random effect results: estimate + SE 
+    #---- Random effect variance results: estimate + SE 
     
     
-    # get phyr random effect estimates
-    var_re_phyr <- c(as.numeric(model_phyr$s2r[2]),
-                     as.numeric(model_phyr$s2r[1]),
-                     as.numeric(model_phyr$s2resid))
-    ss_phyr <- as.numeric(model_phyr$ss) ###check if this SD measure is correct?? why is this different to model output. Is this the SE as well?
-    std <- c(ss_phyr[2], ss_phyr[1], ss_phyr[3])
+    # get phyr random effect variance estimates 
+    var_re_phyr <- c(as.numeric(model_phyr$ss[2])^2, #phylogenetic 
+                     as.numeric(model_phyr$ss[1])^2, #non-phylogenetic 
+                     as.numeric(model_phyr$ss[3])^2) #residual 
     # combine into dataframe
     sigma2_phyr <- data.frame(
       model = "phyr",
       group = c("phylo", "species", "Residual"),
       term = "var",
       estimate = var_re_phyr,
-      std.error = std,
+      std.error = NA,
       conf.low = NA, ###check this 
       conf.high = NA ###check this
     )
     
     
-    # get glmmTMB random effect estimates 
+    # get glmmTMB random effect variance estimates (by default it is on the standard deviation scale)
     re_tmb <- as.data.frame(confint(model_glmmTMB, parm="theta_"))
     species_tmb <- re_tmb[1, ]
     phylo_tmb <- re_tmb[2, ]
@@ -294,23 +303,46 @@ for (j in 1:n_cond) {
       model = "glmmTMB",
       group = c("phylo", "species", "Residual"),
       term = "var",
-      estimate = c(phylo_tmb$Estimate^2, species_tmb$Estimate^2, sigma(model_glmmTMB)^2),
-      std.error = NA, # Replace with the calculated SE if available
+      estimate = c(phylo_tmb$Estimate^2,   #phylo variance estimates
+                   species_tmb$Estimate^2, #non-phylo variance estimates
+                   sigma(model_glmmTMB)^2),
+      std.error = NA, #
       conf.low = c(phylo_tmb$`2.5 %`, species_tmb$`2.5 %`, NA), # Replace with the residual var CI if available
       conf.high = c(phylo_tmb$`97.5 %`, species_tmb$`97.5 %`, NA) # Replace with the residual var CI if available
     )
     
+
+    # Compute variance, SE (delta method), and CI on variance scale
+    var_est <- re_tmb$Estimate^2
+    var_se <- 2 * re_tmb$Estimate * (re_tmb$`97.5 %` - re_tmb$`2.5 %`) / (2 * 1.96)
+    var_ci_low <- re_tmb$`2.5 %`^2
+    var_ci_high <- re_tmb$`97.5 %`^2
     
-    #get brms random effect estimates
+    # Residual variance
+    resid_var <- sigma(model_glmmTMB)^2
+    
+    # Combine results
+    sigma2_tmb <- data.frame(
+      model = "glmmTMB",
+      group = c("phylo", "species", "Residual"),
+      term = "var",
+      estimate = c(var_est, resid_var),
+      std.error = c(var_se, NA),
+      conf.low = c(var_ci_low, NA),
+      conf.high = c(var_ci_high, NA))
+    
+    
+    
+    # get brms random effect variance estimates (standard deviation scale)
     sigma_brms <- tidy(model_brm, effects="ran_pars")
     sigma2_brms <- sigma_brms %>%
       mutate(model="brms",
              term=str_replace(term, "sd", "var"),
-             estimate=estimate^2) %>%
+             estimate=estimate^2) %>%     ##compute variance estimates
       dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
 
     
-    # get MCMCglmm random effect estimates
+    # get MCMCglmm random effect estimates (variance scale)
     sigma2_mcmc <- tidy(model_mcmc, effects="ran_pars", conf.int=TRUE)
     sigma2_mcmc <- sigma2_mcmc %>%
       mutate(model="MCMCglmm",
@@ -318,7 +350,7 @@ for (j in 1:n_cond) {
       dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
     
     
-    # get INLA random effect estimates
+    # get INLA random effect estimates (precision scale i.e. inverse variance)
     re_inla <- 1/fit.inla$hyperpar
     sigma2_inla <- data.frame(
       model = "INLA",

@@ -14,3 +14,5 @@ module load gsl/2.7.1
 options(timeout = max(300, getOption("timeout")))
 install.packages("INLA",repos=c(getOption("repos"),INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)
 
+#### testing
+qstat 5784074
