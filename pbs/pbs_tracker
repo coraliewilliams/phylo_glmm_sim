@@ -1,0 +1,106 @@
+Currently 9% done [...]
+
+
+-------------------------------------------------
+pglmm_sim_set1a
+/srv/scratch/z5394590/pglmm/set1
+
+
+batch 1--------
+
+6497523	[1-10000] 	    set1a_1.pbs  done
+6498157	[10001-20000]   set1a_2.pbs  done
+6498158 [20001-30000]   set1a_3.pbs  done
+6498159	[30001-40000]   set1a_4.pbs  done
+6498160	[40001-50000]   set1a_5.pbs  done   ---> large ones 40001-48000
+6500360	[50001-60000]   set1a_6.pbs  done
+6500361	[60001-70000]   set1a_7.pbs  done
+6500363	[70001-80000]   set1a_8.pbs  done
+6500365	[80001-90000]   set1a_9.pbs  done	---> large ones 88001-90000
+6502250	[90001-100000]  set1a_10.pbs done   ---> large ones 90001-96000
+6500369	[100001-110000] set1a_11.pbs done
+6500370 [110001-120000] set1a_12.pbs done
+
+concatenate results into one file: sim_results_set1a_batch1.RDATA
+
+
+Need to run separatetly with higher run time (1hour?)
+
+88042-88043
+88113
+88125
+88151
+88186
+88208
+88226
+88232
+88281
+88377
+88396
+88418
+88444
+88451
+88447
+88470
+88469
+88497
+88527
+88550
+88591
+
+
+batch 2------
+
+6511612	[120001-130000]     set1a_13.pbs    
+6511613 [130001-140000]     set1a_14.pbs 		----> large ones 136001-140000
+6511614 [140001-150000]     set1a_15.pbs        ----> large ones 140001-144000
+6511615 [150001-160000]     set1a_16.pbs 	
+6511616	[160001-170000]	    set1a_17.pbs 	
+6511617	[170001-180000]	    set1a_18.pbs 	
+6511618	[180001-190000]     set1a_19.pbs 		------> larges ones 184001
+6511619	[190001-192000]     set1a_20.pbs		-------> large ones all
+	
+concatenate results into one file: 
+
+
+
+-------------------------------------------------
+pglmm_sim_set1b
+/srv/scratch/z5394590/pglmm/set1/
+
+
+batch 3------
+
+
+
+
+
+
+
+
+
+
+
+####################################################
+####################################################
+
+pglmm_sim_set2
+/srv/scratch/z5394590/pglmm/set2
+
+-------------------------------------------------
+pglmm_sim_set2a
+/srv/scratch/z5394590/pglmm/set2
+
+
+batch 1--------
+
+
+
+
+-------------------------------------------------
+pglmm_sim_set2b
+/srv/scratch/z5394590/pglmm/set2
+
+
+batch 2--------
+
