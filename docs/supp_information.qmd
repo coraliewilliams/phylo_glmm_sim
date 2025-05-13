@@ -34,6 +34,9 @@ options(digits = 3, scipen = 5)
 ```
 
 
+This webpage provides supporting information to the main text. It is organised into three sections. The first section describes the simulated models and data generating mechanisms. The second section presents a breakdown of compilation and sampling runtimes for the Bayesian MCMC models. The final section provides two case studies that demonstrate how the methods can be applied to real-world data.
+
+For any comments or questions please contact: coralie.williams xxxx
 
 
 
@@ -88,7 +91,7 @@ Run models:
 
 
 
-# Case studies
+# Case studies: bird coloration
 
 ## Background
 
@@ -424,8 +427,8 @@ library(sessioninfo)
 library(details)
 
 si <- session_info()
-si$packages <- si$packages %>% 
-  filter(package %in% c("metafor", "ape", "clubSandwich", "Matrix", "corpcor", "dplyr", "kableExtra", "xtable", "rotl", "Hmisc", "lattice"))
+si$packages <- si$packages 
+  # |> filter(package %in% c("metafor", "ape", "clubSandwich", "Matrix", "corpcor", "dplyr", "kableExtra", "xtable", "rotl", "Hmisc", "lattice"))
 
 details(si, summary = 'Current session info', open = FALSE)
 
