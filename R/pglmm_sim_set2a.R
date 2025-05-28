@@ -41,7 +41,7 @@ tab <- read.csv("job_array_set2a.csv")
 
 ### get job number from pbs script
 job <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
-#job <- 1 for testing
+#job <- 1
 
 ### get parameters for current job
 name <- tab$name[tab$job_number == job] 
@@ -154,7 +154,7 @@ dat$sp <- dat$species # create sp variable (for phyr)
 dat$g <- 1 # add variable g constant (for glmmTMB)
 
 # save simulated data as R file
-save(list = "dat", file = paste0("data/simdat_", job, ".RDATA"))
+save(list = "dat", file = paste0("data/a/simdat_", job, ".RDATA"))
 
 
 
@@ -181,6 +181,9 @@ time.glmmTMB <- res_tmb$rtime
 conv_tmb <- if (!is.null(model_glmmTMB)) model_glmmTMB$sdr$pdHess else FALSE
 
 
+
+
+
 ### MCMCglmm model ###
 
 # get precision phylo matrix and order rows
@@ -201,7 +204,7 @@ res_mcmc <- run_model_safely({
            ginverse = list(phylo = phylo.prec.mat),
            prior = prior,
            data = dat,
-           nitt = 13000, # increase default by x20
+           nitt = 303000, # increase default by x30
            burnin = 3000, # default
            thin = 10) # default
 })
@@ -224,6 +227,9 @@ ess_mcmc <- if (!is.null(model_mcmc)) {
     effective_sample(model_mcmc, effects = "random")$ESS
   ), na.rm = TRUE)
 } else NA
+
+
+
 
 
 
@@ -274,7 +280,7 @@ coefs_mcmc <- if (!is.null(model_mcmc)) {
 # INLA
 coefs_inla <- if (!is.null(model_inla)) {
   as.data.frame(model_inla$summary.fixed)
-} else data.frame(mean = NA, `0.025quant` = NA, `0.975quant` = NA)
+} else data.frame(mean = NA, `0.025quant` = NA, `0.975quant` = NA, check.names = F)
 
 
 
@@ -316,7 +322,6 @@ sigma2_tmb <- if (!is.null(model_glmmTMB)) {
 
 
 
-
 # get MCMCglmm random effect estimates (variance scale)
 sigma2_mcmc <- if (!is.null(model_mcmc)) {
   tidy(model_mcmc, effects = "ran_pars", conf.int = TRUE) |>
@@ -329,6 +334,8 @@ sigma2_mcmc <- if (!is.null(model_mcmc)) {
   term = "var",
   estimate = NA, std.error = NA, conf.low = NA, conf.high = NA
 )
+
+
 
 
 # get INLA random effect estimates (precision scale i.e. inverse variance) using 1000 posterior samples
@@ -395,7 +402,7 @@ result <- data.frame(
                 coefs_mcmc$conf.low[2], 
                 coefs_inla$`0.025quant`[2]),
   mu_ci_high = c(coefs_tmb$`97.5 %`[2],
-                 coefs_mcmc$conf.high[2], 
+                 coefs_mcmc$conf.high[2],
                  coefs_inla$`0.975quant`[2]),
   s2_sp = s2_sp$estimate,
   s2_phylo = s2_phylo$estimate,
@@ -427,5 +434,5 @@ result$s2_resid_mse <- (result$s2_resid - result$sigma2.e)^2
 
 
 # Save results as RDATA
-save(list = "result", file = paste0("results/res_", job, ".RDATA"))
+save(list = "result", file = paste0("results/a/res_", job, ".RDATA"))
 

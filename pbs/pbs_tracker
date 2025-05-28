@@ -1,9 +1,12 @@
-Currently 9% done [...]
+Currently 89% done [...]
+
+####################################################
+pglmm_sim_set1
+####################################################
 
 
 -------------------------------------------------
-pglmm_sim_set1a
-/srv/scratch/z5394590/pglmm/set1
+/srv/scratch/z5394590/pglmm/set1/pglmm_sim_set1a.R
 
 
 batch 1--------
@@ -24,57 +27,32 @@ batch 1--------
 concatenate results into one file: sim_results_set1a_batch1.RDATA
 
 
-Need to run separatetly with higher run time (1hour?)
-
-88042-88043
-88113
-88125
-88151
-88186
-88208
-88226
-88232
-88281
-88377
-88396
-88418
-88444
-88451
-88447
-88470
-88469
-88497
-88527
-88550
-88591
-
-
 batch 2------
 
-6511612	[120001-130000]     set1a_13.pbs    
-6511613 [130001-140000]     set1a_14.pbs 		----> large ones 136001-140000
-6511614 [140001-150000]     set1a_15.pbs        ----> large ones 140001-144000
-6511615 [150001-160000]     set1a_16.pbs 	
-6511616	[160001-170000]	    set1a_17.pbs 	
-6511617	[170001-180000]	    set1a_18.pbs 	
-6511618	[180001-190000]     set1a_19.pbs 		------> larges ones 184001
-6511619	[190001-192000]     set1a_20.pbs		-------> large ones all
+6511612	[120001-130000]     set1a_13.pbs   done 
+6511613 [130001-140000]     set1a_14.pbs   done	----> large ones 136001-140000
+6511614 [140001-150000]     set1a_15.pbs   done ----> large ones 140001-144000
+6511615 [150001-160000]     set1a_16.pbs   done	
+6511616	[160001-170000]	    set1a_17.pbs   done	
+6511617	[170001-180000]	    set1a_18.pbs   done
+6511618	[180001-190000]     set1a_19.pbs   done	------> larges ones 184001
+6511619	[190001-192000]     set1a_20.pbs   done	-------> large ones all
 	
 concatenate results into one file: 
 
 
-
 -------------------------------------------------
-pglmm_sim_set1b
-/srv/scratch/z5394590/pglmm/set1/
+/srv/scratch/z5394590/pglmm/set1/pglmm_sim_set1b.R
 
 
 batch 3------
 
+6521587 [1-10000]		set1b_1.pbs
+6521589 [10001-20000]	set1b_2.pbs
+6521590 [20001-24000]	set1b_3.pbs
 
 
-
-
+concatenate results into one file: 
 
 
 
@@ -82,25 +60,23 @@ batch 3------
 
 
 ####################################################
-####################################################
-
 pglmm_sim_set2
-/srv/scratch/z5394590/pglmm/set2
+####################################################
 
 -------------------------------------------------
-pglmm_sim_set2a
-/srv/scratch/z5394590/pglmm/set2
+/srv/scratch/z5394590/pglmm/set2/pglmm_sim_set2a.R
 
 
 batch 1--------
 
-
+6523019,6524960 [1-10000]			set2a_1.pbs
+6524961		    [10001-20000]		set2a_2.pbs
+6524963			[20001-20000]		set2a_3.pbs
 
 
 -------------------------------------------------
 pglmm_sim_set2b
 /srv/scratch/z5394590/pglmm/set2
-
 
 batch 2--------
 

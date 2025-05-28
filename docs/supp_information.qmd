@@ -36,8 +36,7 @@ options(digits = 3, scipen = 5)
 
 This webpage provides supporting information to the main text. It is organised into three sections. The first section describes the simulated models and data generating mechanisms. The second section presents a breakdown of compilation and sampling runtimes for the Bayesian MCMC models. The final section provides two case studies that demonstrate how the methods can be applied to real-world data.
 
-For any comments or questions please contact: coralie.williams xxxx
-
+For any comments or questions please contact: Coralie Williams^[coralie.williams@unsw.edu.au]
 
 
 # Simulated models supporting methods
@@ -45,7 +44,21 @@ For any comments or questions please contact: coralie.williams xxxx
 Here is an example of fitting the model using 5 different packages (which are used in our simulation study).
 
 
-Simulate some data:
+```{r}
+### set up model parameters 
+seed <- 1
+b0 <- 1
+b1 <- 1.5
+k.species <- 25
+n.reps <- 10 #balanced design
+sigma2.s <- 0.25
+sigma2.p <- 0.25
+sigma2.e <- 0.2
+
+```
+
+
+Simulate some data based on these parameter values:
 
 
 ```{r}
@@ -53,7 +66,50 @@ Simulate some data:
 #| eval: false
 #| echo: false
 
+### set seed
+set.seed(seed)
 
+### set up k.obs (number of observations per species)
+if (n.reps==999) {
+  k.obs <- round(rbeta(n = k.species, shape1 = 1.25, shape2 = 3) * 99) + 1
+} else {
+  k.obs <- n.reps
+}
+
+### create species id variable
+sp.id <- rep(seq_len(k.species), times=k.obs)
+
+### total number of observations
+n <- length(sp.id)
+
+### simulate simple dataframe with covariate (x) variable
+x <- runif(n, 10, 20) 
+dat <- data.frame(obs = 1:n, x = x, species = sp.id)
+
+### simulate tree and obtain phylo matrix
+tree <- rtree(k.species, tip.label = seq_len(k.species))
+tree <- compute.brlen(tree, power=1) 
+phylo.mat <- vcv(tree, corr = TRUE) ## we want correlation matrix (bounded by -1 and 1)
+phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(rownames(phylo.mat)))]
+
+
+### Simulate response variable (phen) based on cofactor and phylogenetic matrix
+u.s <- rnorm(k.species, 0, sqrt(sigma2.s))[sp.id]
+u.p <- mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
+ei <- rnorm(n, 0, sqrt(sigma2.e))
+
+### get estimates of y
+yi <- b0 + b1*x + u.s + u.p + ei
+
+### append all to dataframe
+dat <- cbind(dat, u.s, u.p, ei, b0, b1, yi)
+dat$phylo <- dat$species # phylo ID variable (same as species) - needs to be numeric to work with INLA
+dat$species <- factor(dat$species) # format species variable for models
+dat$sp <- dat$species # create sp variable (for phyr)
+dat$g <- 1 # add variable g constant (for glmmTMB)
+
+# save simulated data as R file
+save(list = "dat", file = paste0("data/simdat_", job, ".RDATA"))
 
 ```
 
@@ -375,6 +431,15 @@ coefs_tmb <- as.data.frame(confint(mod2.b, parm="beta_"))
 re_tmb <- as.data.frame(confint(mod2.b, parm="theta_"))
 
 
+
+
+##########################################################################
+
+### Body count of color
+# Overdispersed Poisson compois (Conway-Maxwell Poisson) response
+### Absence or presence of color
+# Binomial response
+# 
 
 ## model 3 - negative binomial response (time: 55.22 seconds)
 time.glmmTMB <- rtime(mod2.b <- glmmTMB(log(B1) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), data = spec.dat, REML=TRUE))

@@ -41,7 +41,7 @@ tab <- read.csv("job_array_set1a.csv")
 
 ### get job number from pbs script
 job <- as.numeric(Sys.getenv("PBS_ARRAY_INDEX"))
-#job <- 144000 for testing
+#job <- 125256
 
 ### get parameters for current job
 name <- tab$name[tab$job_number == job] 
@@ -338,7 +338,7 @@ coefs_mcmc <- if (!is.null(model_mcmc)) {
 # INLA
 coefs_inla <- if (!is.null(model_inla)) {
   as.data.frame(model_inla$summary.fixed)
-} else data.frame(mean = NA, `0.025quant` = NA, `0.975quant` = NA)
+} else data.frame(mean = NA, `0.025quant` = NA, `0.975quant` = NA, check.names = F)
 
 
 
@@ -470,6 +470,12 @@ s2_sp <- s2 %>% filter(group=="species")
 s2_res <- s2 %>% filter(group=="Residual")
 
 
+# if run time is not recorded put NA
+ifelse(is.null(time.phyr), time.phyr <- NA, time.phyr <- time.phyr)
+ifelse(is.null(time.glmmTMB), time.glmmTMB <- NA, time.glmmTMB <- time.glmmTMB)
+ifelse(is.null(time.brms), time.brms <- NA, time.brms <- time.brms)
+
+
 
 #####################
 ## Save run results ---------------------------------------------
@@ -504,8 +510,8 @@ result <- data.frame(
                 coefs_inla$`0.025quant`[2]),
   mu_ci_high = c(coefs_phyr$conf.high[2],
                  coefs_tmb$`97.5 %`[2],
-                 coefs_brm$conf.high[2], 
-                 coefs_mcmc$conf.high[2], 
+                 coefs_brm$conf.high[2],
+                 coefs_mcmc$conf.high[2],
                  coefs_inla$`0.975quant`[2]),
   s2_sp = s2_sp$estimate,
   s2_phylo = s2_phylo$estimate,

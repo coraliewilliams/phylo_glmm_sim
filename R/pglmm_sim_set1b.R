@@ -511,5 +511,5 @@ result$s2_resid_mse <- (result$s2_resid - result$sigma2.e)^2
 
 
 # Save results as RDATA
-save(list = "result", file = paste0("results/res_", job, ".RDATA"))
+save(list = "result", file = paste0("results/batch3/res_", job, ".RDATA"))
 

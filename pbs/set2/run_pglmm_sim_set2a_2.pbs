@@ -1,12 +1,12 @@
 #!/bin/bash
 	
-#PBS -N pglmm_sim_set1a
-#PBS -l select=1:ncpus=4:mem=5gb
-#PBS -l walltime=00:25:00
-#PBS -J 1-10000
+#PBS -N pglmm_sim_set2a
+#PBS -l select=1:ncpus=4:mem=6gb
+#PBS -l walltime=11:59:00
+#PBS -J 10001-20000
 
 #working direction
-cd /srv/scratch/z5394590/pglmm/set1/
+cd /srv/scratch/z5394590/pglmm/set2/
 
 module purge
 module load r/4.3.1
@@ -19,4 +19,4 @@ module load openssl/1.1.1s
 module load proj/8.2.1
 module load gsl/2.7.1
 
-Rscript pglmm_sim_set1b.R
+Rscript pglmm_sim_set2a.R
