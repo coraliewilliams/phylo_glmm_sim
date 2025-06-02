@@ -3,7 +3,7 @@
 #PBS -N pglmm_sim_set2a
 #PBS -l select=1:ncpus=1:mem=3gb
 #PBS -l walltime=11:59:00
-#PBS -J 10001-12000
+#PBS -J 18001-20000
 
 #working direction
 cd /srv/scratch/z5394590/pglmm/set2/

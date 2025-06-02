@@ -11,9 +11,7 @@ results <- dat
 
 ################### Plot results #############################
 
-# Plot run times vs packages
-# use special argument to plot log10:
-# LOOK HERE: http://www.datanovia.com/en/blog/ggplot-log-scale-transformation/
+# Plot run times vs packages (y-axis on log10 scale)
 runtime_plot <- results |> 
   #filter(model %in% c("glmmTMB", "INLA", "brms", "MCMCglmm")) |> 
   ggplot(aes(x=model, y=run_time, fill=model, color=model)) + 

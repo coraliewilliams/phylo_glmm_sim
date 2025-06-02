@@ -34,14 +34,31 @@ options(digits = 3, scipen = 5)
 ```
 
 
-This webpage provides supporting information to the main text. It is organised into three sections. The first section describes the simulated models and data generating mechanisms. The second section presents a breakdown of compilation and sampling runtimes for the Bayesian MCMC models. The final section provides two case studies that demonstrate how the methods can be applied to real-world data.
+This webpage provides supporting information to the main text. It is organised into three sections. The first section describes the simulated models and data generating mechanisms. The second section presents a breakdown of compilation and sampling runtimes for the Bayesian MCMC models. The third section The final section provides two case studies that demonstrate how the methods can be applied to real-world data.
 
-For any comments or questions please contact: Coralie Williams^[coralie.williams@unsw.edu.au]
+For any comments or questions please contact Coralie Williams^[coralie.williams@unsw.edu.au] (corresponding author).
 
 
-# Simulated models supporting methods
+# Models 
 
-Here is an example of fitting the model using 5 different packages (which are used in our simulation study).
+We demonstrate and explain how to fit phylogenetic generalized mixed models (PGLMM) using five different packages which we used in our simulation study: `glmmTMB`, `phyr`, `MCMCglmm`, `brms`, and `INLA`. The models are fitted to one simulated dataset using a randomly generated phylogenetic tree and a set of model parameters. We compare the performance of these packages in terms of runtime, accuracy, and bias of the fixed effect mean and random effect variance estimates.
+
+## Repeated measures species
+
+We specify the model to fit repeated measures per species as:
+
+$$
+y_{ij} = \beta_0 + \beta_1 x_{ij} + n_i + p_i + \varepsilon_{ij}
+$$
+
+Where:
+
+- \( y_{ij} \): response for observation \( j \) in species \( i \)
+- \( \beta_0, \beta_1 \): fixed effects (intercept and slope)
+- \( n_i \sim \mathcal{N}(0, \sigma^2_{\text{species}}) \): random species effect (non-phylogenetic)
+- \( p_i \sim \mathcal{N}(0, \sigma^2_{\text{phylo}} \mathbf{A}) \): phylogenetic effect, with \( \mathbf{A} \) the phylogenetic relatedness matrix
+- \( \varepsilon_{ij} \sim \mathcal{N}(0, \sigma^2) \): residual error
+
 
 
 ```{r}
@@ -121,7 +138,88 @@ Run models:
 #| cache: true 
 #| eval: false
 #| echo: false
+#| label: Simulated glmmTMB model
 
+
+# repeated measures per species
+model_glmmTMB <- glmmTMB(yi ~ x + (1|species) + propto(0 + species|g, phylo.mat),
+                         data = dat,
+                         REML = TRUE)
+
+summary(model_glmmTMB)
+
+```
+
+
+
+
+```{r}
+#| cache: true 
+#| eval: false
+#| echo: false
+#| label: Simulated phyr model
+
+mdoel_phyr <- pglmm(yi ~ x + (1|sp__),
+                    cov_ranef = list(sp = tree),
+                    data = dat,
+                    REML = TRUE)
+
+
+```
+
+
+
+```{r}
+#| cache: true 
+#| eval: false
+#| echo: false
+#| label: Simulated MCMCglmm model
+
+model_mcmc <- MCMCglmm(yi ~ x,
+                       random = ~species + phylo,
+                       family = "gaussian",
+                       ginverse = list(phylo = phylo.prec.mat),
+                       prior = prior,
+                       data = dat,
+                       nitt = 303000, # increase default by x30
+                       burnin = 3000, # default
+                       thin = 10) # default
+
+
+```
+
+
+```{r}
+#| cache: true 
+#| eval: false
+#| echo: false
+#| label: Simulated brms model
+
+model_brms <- brm(yi ~ x + (1|species) + (1|gr(phylo, cov = phylo.mat)), #phylo.mat is the correlation matrix
+                  data = dat,
+                  family = gaussian(),
+                  chains = 4, # default
+                  iter = 20000, # increased default x10
+                  cores = 4, # equal to number of chains
+                  data2 = list(phylo.mat = phylo.mat))
+
+```
+
+
+
+```{r}
+#| cache: true 
+#| eval: false
+#| echo: false
+#| label: Simulated INLA model
+
+model_inla <- inla(yi ~ x + f(species, model = "iid") + 
+                     f(phylo, ## this needs to be a numeric to work
+                       model = "generic0",
+                       Cmatrix = phylo.prec.mat,
+                       hyper=pcprior),
+                   family = "gaussian",
+                   data = dat)
 
 
 ```
@@ -130,7 +228,34 @@ Run models:
 
 
 
-# Bayesian MCMC model runtime breakdown
+
+
+## One measure per species
+
+The model specification for one measure per species is:
+
+$$
+y_{ij} = \beta_0 + \beta_1 x_{ij} + p_i + \varepsilon_{ij}
+$$
+
+
+Run models:
+
+```{r}
+#| cache: true 
+#| eval: false
+#| echo: false
+#| label: Simulated glmmTMB model 2
+
+# one measure per species
+model_glmmTMB_simp <- glmmTMB(yi ~ x + propto(0 + species|g, phylo.mat),
+                         data = dat,
+                         REML = TRUE)
+
+```
+
+
+# Bayesian MCMC model runtime 
 
 
 
@@ -147,14 +272,15 @@ Run models:
 
 
 
-# Case studies: bird coloration
+
+# Case studies
 
 ## Background
 
 What evolutionary processes have led to current color distribution in birds? With this analysis we can understand whether the coloration patterns are a result of factors such as sexual selection, predation pressure, or habitat preferences, among others. Furthermore, it can guide future research and experiments by suggesting specific evolutionary questions to investigate.
 
 
-## Case study 1
+## Case study 1: bird coloration
 
 ### Data overview
 
@@ -464,10 +590,12 @@ re_tmb <- as.data.frame(confint(mod2.b, parm="theta_"))
 
 
 
-## Case study 2
+## Case study 2: Hydraulic plant data 
 
 
 
+
+## Case study 3: 
 
 
 
