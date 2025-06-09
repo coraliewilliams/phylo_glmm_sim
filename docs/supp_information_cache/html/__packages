@@ -22,3 +22,17 @@ phytools
 geiger
 data.table
 pavo
+MASS
+glmmTMB
+Rcpp
+brms
+Matrix
+coda
+MCMCglmm
+INLA
+phyr
+broom.mixed
+knitr
+bayestestR
+performance
+rbenchmark

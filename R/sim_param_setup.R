@@ -36,7 +36,7 @@ tab1a$scenario <- rep(1:conds, each = repl)
 write.csv(tab1a, "output/job_array_set1a.csv", row.names = FALSE)
 
 
-
+d
 ############### No repeated measures 
 name <- "set1b"
 
