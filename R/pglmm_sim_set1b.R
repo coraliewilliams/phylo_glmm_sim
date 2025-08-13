@@ -113,6 +113,7 @@ n <- length(sp.id)
 
 ### simulate simple dataframe with covariate (x) variable
 x <- runif(n, 10, 20) 
+x <- scale(x) # scale x to have mean 0 and sd 1)
 dat <- data.frame(obs = 1:n, x = x, species = sp.id)
 
 ### simulate tree and obtain phylo matrix
@@ -121,6 +122,10 @@ tree <- compute.brlen(tree, power=1)
 phylo.mat <- vcv(tree, corr = TRUE) ## we want correlation matrix (bounded by -1 and 1)
 phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(rownames(phylo.mat)))]
 
+### get precision phylo matrix and order rows (for MCMCglmm and INLA)
+phylo.prec.mat <- inverseA(tree, nodes = "TIPS", scale = TRUE)$Ainv
+phylo.prec.mat <- phylo.prec.mat[order(as.numeric(rownames(phylo.prec.mat))),
+                                 order(as.numeric(rownames(phylo.prec.mat)))]
 
 ### Simulate response variable (phen) based on cofactor and phylogenetic matrix
 u.p <- mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
@@ -139,7 +144,7 @@ dat$sp <- dat$species # create sp variable (for phyr)
 dat$g <- 1 # add variable g constant (for glmmTMB)
 
 # save simulated data as R file
-save(list = "dat", file = paste0("data/simdat_", job, ".RDATA"))
+save(list = c("dat", "phylo.mat", "phylo.prec.mat"), file = paste0("data/b/simdat_", job, ".RDATA"))
 
 
 
@@ -219,11 +224,6 @@ ess_brms <- if (!is.null(model_brm)) {
 
 ### MCMCglmm model ###
 
-# get precision phylo matrix and order rows
-phylo.prec.mat <- inverseA(tree, nodes = "TIPS", scale = TRUE)$Ainv
-phylo.prec.mat <- phylo.prec.mat[order(as.numeric(rownames(phylo.prec.mat))),
-                                 order(as.numeric(rownames(phylo.prec.mat)))]
-
 # set recommended priors with two random effects
 prior <- list(G=list(G1=list(V=1,nu=1,alpha.mu=0,alpha.V=1000)),
               R=list(V=1,nu=0.02))
@@ -265,16 +265,14 @@ ess_mcmc <- if (!is.null(model_mcmc)) {
 ### INLA model ###
 # only allows for one covariate name per f()-term
 
-# set up recommended penalizing complexity priors 
-pcprior = list(prec = list(prior="pc.prec", param = c(20, 0.1)))
-
 # run model (use generic0)
 res_inla <- run_model_safely({
   inla(yi ~ x + 
+         f(species,
+           model = "iid") + 
          f(phylo, ## this needs to be a numeric to work
            model = "generic0",
-           Cmatrix = phylo.prec.mat,
-           hyper=pcprior),
+           Cmatrix = phylo.prec.mat),
        family = "gaussian",
        data = dat)
 })
@@ -283,8 +281,7 @@ model_inla <- res_inla$value
 model_inla_error <- if (is.null(res_inla$error)) NA else res_inla$error$message
 model_inla_warning <- if (is.null(res_inla$warning)) NA else res_inla$warning$message
 time.inla <- res_inla$rtime
-conv_inla <- !is.null(model_inla)  #theres no convergence metric but check that it ran
-
+conv_inla <- model_inla$ok
 
 
 
@@ -511,5 +508,5 @@ result$s2_resid_mse <- (result$s2_resid - result$sigma2.e)^2
 
 
 # Save results as RDATA
-save(list = "result", file = paste0("results/batch3/res_", job, ".RDATA"))
+save(list = "result", file = paste0("results/b/res_", job, ".RDATA"))
 
