@@ -36,3 +36,6 @@ knitr
 bayestestR
 performance
 rbenchmark
+here
+DHARMa
+emmeans
