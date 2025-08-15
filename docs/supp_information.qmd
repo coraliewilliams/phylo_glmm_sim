@@ -7,21 +7,24 @@ format:
     page-layout: full
     toc: true
     toc-location: left
-    toc-depth: 2
+    toc-depth: 3
     theme: materia
     embed-resources: true
     code-fold: show
     code-tools: true
     number-sections: true
+    number-depth: 2
     footnote-location: margin
+favicon: "favicon.ico"
 editor_options: 
   chunk_output_type: console
+
 ---
 
-## TO DO
+<!-- -   make sure to use package name:: as much as possible -->
+<!-- -   make diagnostics of models using DHARMA (or glmmTMB diagnostics) -->
 
--   make sure to use package name:: as much as possible
--   make diagnostics of models using DHARMA (or glmmTMB diagnostics)
+# Overview
 
 ```{r setup}
 #| output: false
@@ -30,27 +33,38 @@ editor_options:
 #| code-overflow: wrap
 #| code-fold: true
 
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE
+)
+
 pacman::p_load(
   rmarkdown, readr, dplyr, purrr, splitstackshape, tidyverse, tidyr, ggplot2,
   vroom, details, sessioninfo, devtools, readxl, forcats, stringr, ape, phytools, 
   geiger, data.table, pavo, MASS, glmmTMB, brms, MCMCglmm, phyr, INLA, broom.mixed,
-  knitr, bayestestR, performance, rbenchmark, here, DHARMa
+  knitr, bayestestR, performance, rbenchmark, here, DHARMa, emmeans
 )
-
+#setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs")
 
 options(digits = 4, scipen = 5)
 ```
 
-This webpage provides supporting information to the main text. It is organised into three sections. The first section describes the simulated models and data generating mechanisms. The second section presents a breakdown of compilation and sampling runtimes for the Bayesian MCMC models. The third section The final section provides two case studies that demonstrate how the methods can be applied to real-world data.
+This webpage provides supporting information for the manuscript "*Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package*". The webpage is organised into three sections:
+(1)   First, we describe the simulated models and data-generating mechanisms for each of the five evaluated R packages for fitting PGLMMs
+(2)   We then use the simulated data to illustrate compilation and sampling runtimes for the Bayesian MCMC models.
+(3)   Finally, we presents two case studies illustrating the application of these methods to ecological and evolutionary data, the first on bird color traits and the second on plant traits. 
 
-For any comments or questions please contact corresponding author: Coralie Williams (coralie.williams\@unsw.edu.au)
+
+For comments or questions, please contact the corresponding author at [coralie.williams@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or [coraliewilliams@outlook.com](coraliewilliams@outlook.com).
+
+
 
 # Models
 
 We demonstrate and explain how to fit phylogenetic generalized mixed models (PGLMM) using five different packages which we used in our simulation study: `glmmTMB`, `phyr`, `MCMCglmm`, `brms`, and `INLA`. The models are fitted to one simulated dataset using a randomly generated phylogenetic tree and a set of model parameters. We compare the performance of these packages in terms of runtime, accuracy, and bias of the fixed effect mean and random effect variance estimates.
 
-::: panel-tabset
-## Repeated measures per species
+<!-- ::: panel-tabset -->
+<!-- ## Repeated measures per species -->
 
 We assume a set of trait measures $y_{ij}$ repeated measure (observation) $i$ and for each species $j$. The model is specified as follows:
 
@@ -90,35 +104,32 @@ Simulate data based on these parameter values:
 #| eval: true
 #| echo: true
 
-### set seed
 set.seed(seed)
 
-### set up k.obs (number of observations per species)
+# set up k.obs (number of observations per species)
 k.obs <- n.reps # assumes a balanced design
-
-### create species id variable
+# species id 
 sp.id <- rep(seq_len(k.species), times=k.obs)
-
-### total number of observations
+# total number of observations
 n <- length(sp.id)
 
-### simulate simple dataframe with covariate (x) variable
+# simulate simple dataframe with covariate (x) variable
 x <- runif(n, 10, 20) 
 dat <- data.frame(obs = 1:n, x = x, species = sp.id)
 
-### simulate tree and obtain phylo matrix
+# simulate tree and obtain phylo matrix
 tree <- rtree(k.species, tip.label = seq_len(k.species))
 tree <- compute.brlen(tree, power=1) # power of 1 means ultra-metric tree
 phylo.mat <- vcv(tree, corr = TRUE) ## we want a correlation matrix (bounded by -1 and 1)
 phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(rownames(phylo.mat)))]
 
 
-### Simulate response variable (phen) based on cofactor and phylogenetic matrix
+# Simulate response variable (phen) based on cofactor and phylogenetic matrix
 u.s <- rnorm(k.species, 0, sqrt(sigma2.n))[sp.id]
 u.p <- mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
 ei <- rnorm(n, 0, sqrt(sigma2.e))
 
-### get estimates of y
+# get estimates of y
 yi <- b0 + b1*x + u.s + u.p + ei
 
 ### append all to dataframe
@@ -221,12 +232,6 @@ time.mcmc <- system.time({
 
 ```
 
-View model summary:
-
-```{r}
-summary(model_mcmc)
-```
-
 Next we check the effective sample size (ESS) and the Heidelberger diagnostic test which checks if the MCMC chains have converged and are stationary. The ESS should be above 400 for both fixed and random effects (Vehtari et al., 2021), and the Heidelberger diagnostic should return `TRUE` for all parameters.
 
 ```{r}
@@ -262,11 +267,6 @@ time.brms <- system.time({
 })
 ```
 
-View model output:
-
-```{r}
-summary(model_brms)
-```
 
 Check that the maximum effective sample size (ESS) of the model is high enough and check the Rhat value is below 1.01 (Vehtari et al. 2021):
 
@@ -511,7 +511,7 @@ res_rand <- data.frame(
 ## Show table of results of runtime and random variance ------
 kable(res_rand, 
   caption = "Runtime and random component variance estimates of the simulated model",
-  col.names = c("Model", "Species size", "Sample size", "Run time (s)", "Phylo variance", "Non-phylo variance", "Residual variance"),
+  col.names = c("Model", "Species size", "Sample size", "Run time (s)", "Phylo variance est.", "Non-phylo variance est.", "Residual variance est."),
   digits = 3,
   format = "html"
 )
@@ -626,8 +626,8 @@ Run a model that prepares the run but does not start actual sampling to have the
 
 ```{r}
 #| cache: true 
-#| eval: true
-#| echo: true
+#| warnings: false
+
 runtime_2_pre <- benchmark(
     "process" = {
         model_brms_1_pre <- brm(yi ~ x + (1|species) + (1|gr(phylo, cov = phylo.mat)),
@@ -648,8 +648,7 @@ Run "larger" model and convert posterior to MCMC object.
 
 ```{r}
 #| cache: true 
-#| eval: true
-#| echo: true
+#| warnings: false
 model_brms_max <- brm(yi ~ x + (1|species) + (1|gr(phylo, cov = phylo.mat)),
             data = dat,
             data2 = list(phylo.mat = phylo.mat),
@@ -694,9 +693,15 @@ runtime_2_run$elapsed - runtime_2_pre$elapsed
 
 ## Background
 
-What evolutionary processes have led to current color distribution in birds? With this analysis we can understand whether the coloration patterns are a result of factors such as sexual selection, predation pressure, or habitat preferences, among others. Furthermore, it can guide future research and experiments by suggesting specific evolutionary questions to investigate.
+The following case studies illustrate how phylogenetic mixed models can be applied to diverse questions in ecology and evolution. The first examines patterns of plumage colour in birds, while the second explores macroevolutionary patterns in plant traits. Together, they demonstrate the flexibility of these methods across taxa and research questions.
+
+All models, results, and datasets presented in these case studies are **intended solely for illustrative purposes**. They are designed to demonstrate analytical approaches rather than to provide definitive biological insights. No substantive conclusions should be drawn from these analyses.
 
 ## Case study 1: Bird color evolution
+
+Birds are a valuable system for studying ecological and evolutionary processes because their diversity in form, behaviour, and coloration is well documented across many species and habitats. Variation in plumage colour, in particular, can provide insights into mechanisms such as sexual selection, camouflage, and signalling. By examining these traits, researchers can better understand how environmental and evolutionary pressures shape biodiversity.
+
+<!-- Maybe add some picture of birds: https://unsplash.com/s/photos/bird -->
 
 ### Data overview
 
@@ -723,15 +728,15 @@ length(table(bird_data$sci_name_Jetz)) # 949 species
 bird_data <- bird_data |> 
   filter(!sci_name_Jetz %in% c("Basileuterus_rufifrons", "Malurus_lamberti", "Malurus_splendens"))
 
-#### Notes ####
+
+########## Notes #########
+
+# missing values ---> not sure why?
+#na_count <- colSums(is.na(dat2))
+#na_count[na_count > 0]
 
 # individuals a-c are male and d-f are female
 #table(bird_data$sex, bird_data$individual)
-
-
-# check missing values ---> there is several missing values in the dataset
-#na_count <- colSums(is.na(dat2))
-#na_count[na_count > 0]
 
 # number of measurements?
 #table(bird_data$Nmeasured)
@@ -767,7 +772,7 @@ bird_data <- bird_data |>
 
 #### Obtain wavelength dataset
 
-Now we want to create a wavelength dataset using the `pavo` package using the spectral reflectance data.
+Now we want to create a wavelength dataset using the `pavo` package given the spectral reflectance data.
 
 ```{r}
 #| eval: true
@@ -790,13 +795,14 @@ dat2 <- dat |>
 # create spectral dataset with pavo
 specs <- as.rspec(dat2)
 
-# example one bird, one body region
-plot(Acrocephalus_palustris_a.Male.throat ~ wl, type="l", data=specs)
-plot(Alle_alle_a.Male.throat ~ wl, type="l", data=specs)
-plot(Aplonis_metallica_a.Male.wing_cov ~ wl, type = "l", data = specs)
+# some examples of individual birds body region color spectrum
+plot(Acrocephalus_palustris_a.Male.throat ~ wl, type="l", data=specs, title="Acrocephalus palustris (throat)")
+plot(Alle_alle_a.Male.throat ~ wl, type="l", data=specs, title="Alle alle (throat)")
+plot(Aplonis_metallica_a.Male.wing_cov ~ wl, type = "l", data = specs, title="Aplonis metallica (wing covert)")
 
 
-# use procspec to adjust negative values (maybe due to darker colors) by shifting them
+# use procspec to adjust negative values by shifting them by 10
+# (this maybe due to darker colors)
 specs <- procspec(specs, fixneg="addmin")
 plot(specs, select = 10)
 
@@ -804,12 +810,12 @@ plot(specs, select = 10)
 
 #### Obtain spectral shape descriptors
 
-Using the wavelength dataset we can now obtain spectral shape descriptors. These descriptors will be used in the model. Here we will focus on four descriptors of interest: brightness (B1), spectral slope (S1), spectral curvature (S9), and hue (H4).
+Using the wavelength dataset we can now obtain spectral shape descriptors. These descriptors will be used in the model. Here we will focus on four descriptors of interest: brightness (B1), spectral slope (S1), spectral curvature (S9), and hue (H4). More information about the spectral shape descriptors can be found here: https://book.colrverse.com/spectral-shape-descriptors.html
 
 ```{r}
 #| eval: true
 
-# Obtain spectral shape descriptors: https://book.colrverse.com/spectral-shape-descriptors.html
+# Obtain spectral shape descriptors
 spec.des <- summary(specs, subset = c("B1", "B2", "S9", "H4")) ## using subset makes it faster to run by selecting the shapes of interest
 
 dev.off()
@@ -873,32 +879,29 @@ vm <- vismodel(specs, visual = "cie10", illum = "D65", bkg = "ideal", relative =
 # 2) convert to CIELAB colorspace (to get hue and chroma)
 lab <- colspace(vm, space = "cielab") 
 
-# 3) get chroma and hue angle
+# 3) get chroma and hue angle (converting CIELAB to CIELCh)
 L <- lab$L
 a <- lab$a
 b <- lab$b
 C <- sqrt(a^2 + b^2)
 h <- (atan2(b, a) * 180 / pi) %% 360  # degrees in 0 to 360
 
-# 4) Set thresholds for carotenoid range and saturation
-h_lower <- 340   # start of red
+# 4) thresholds for carotenoid range and saturation
+h_lower <- 330   # start of red
 h_upper <- 100   # end of yellow
 C_min   <- 15 # min chroma
 L_min   <- 20 # avoid very dark samples
 
-# 5) Hue range test with wrap around
-in_range <- if (h_lower <= h_upper) {
-  h >= h_lower & h <= h_upper
-} else {
-  h >= h_lower | h <= h_upper
-}
+# 5) Hue range test 
+in_range <- h >= h_lower | h <= h_upper
 
-# 6) COmpute binary trait:  1 = carotenoid like present, 0 = absent
+# 6) COmpute binary trait:  1 = carotenoid like colour present, 0 = absent
 present <- as.integer(in_range & C >= C_min & L >= L_min)
 
+# set up dataset
 carot.dat.all <- data.frame(
   rowname  = rownames(lab),
-  L = L, a = a, b = b,C = C, h = h,
+  L = L, a = a, b = b, C = C, h = h,
   carotenoid = present
 )
 
@@ -907,28 +910,53 @@ carot.dat.all <- merge(spec.dat, carot.dat.all, by.x = "rowname", by.y = "rownam
 # create individual id variable
 carot.dat.all$indiv_rep <- sub(".*_([a-f])\\..*$", "\\1", carot.dat.all$rowname)
 
-# get carotenoid dataset combined by body regions
-# carotenoid: 1 = carotenoid like present in at least one body region, 0 = absent in all
-carot.dat <- carot.dat.all |> 
-  group_by(species, sex, indiv_rep) |> 
-  summarise(carotenoid = as.integer(any(carotenoid==1)))
+# number of observations with carotenoid like colour
+table(carot.dat.all$carotenoid)
 
-table(carot.dat$carotenoid)
+# # checks
+# carot.dat.all |>
+#   filter(L>20 & C>12 & in_range) |>
+#   arrange(desc(L))
 
-# save as csv
-write.csv(carot.dat, file="data/carotenoid_data_for_model.csv", row.names = FALSE)
+# #  check bird cardinalis cardinalis (should be yellow or red?)
+# carot.dat.all |> 
+#   filter(grepl("Cardinalis_cardinalis", rowname)) |> 
+#   arrange(desc(h))
+
+
+# Plot
+ggplot(carot.dat.all, aes(h, C)) +
+  geom_point(data = subset(carot.dat.all, carotenoid == 0),
+             shape = 21, size = 1.5, fill = "grey85", colour = "grey70", alpha = 0.6) +
+  geom_point(data = subset(carot.dat.all, carotenoid == 1),
+             aes(fill = L, colour = L), shape = 21, size = 1.8, stroke = 0.4, alpha = 0.95) +
+  scale_fill_gradient(name = "L*", limits = c(15, 50), low = "darkred", high = "lightcoral") +
+  scale_colour_gradient(guide = "none", limits = c(15, 50), low = "darkred", high = "lightcoral") +
+  labs(x = "Hue (degrees)", y = "Chroma (C*)", title = "Carotenoid presence") +
+  theme_bw()
 
 ```
 
-We also want to create a dataset for the ordinal trait (proportion of body region with color) to understand if there is a relationship between the proportion of body region with carotenoid color presence.
+
+Let's save the dataset for modelling later on:
+
 
 ```{r}
-carot_ordinal <- carot.dat.all |>
+carot.dat <- carot.dat.all
+
+# save as csv
+write.csv(carot.dat, file="data/carotenoid_data_for_model.csv", row.names = FALSE)
+```
+
+Now let's obtain the dataset where we summarise for each individual bird the proportion of body region with carotenoid color presence (ordinal data trait), and save it for modelling later on:
+
+```{r}
+carot.ordinal <- carot.dat.all |>
   group_by(species, sex, indiv_rep) |>
   summarise(prop_carotenoid = mean(carotenoid), .groups = "drop")
 
 # save as csv
-write.csv(carot_ordinal, file="data/ordinal_data_for_model.csv", row.names = FALSE)
+write.csv(carot.ordinal, file="data/ordinal_data_for_model.csv", row.names = FALSE)
 
 ```
 
@@ -1096,19 +1124,12 @@ We found that the Gamma distribution shows improve model fit as the residual plo
 Let's obtain the estimate of the phylogenetic signal in the :
 
 ```{r}
-#| output: false
-#| warnings: false
-#| eval: false
+#| output: true
 #| cache: true 
 
-vc <- VarCorr(m2)
-vc_cond <- subset(vc, component == "cond" & var1 == "(Intercept)" & is.na(var2))
-
-phylo_name    <- "phylo"    # phylogenetic 
-nonphylo_name <- "species"  # non-phylogenetic 
-
-sigma2_p <- vc_cond$vcov[match(phylo_name, vc_cond$grp)] # phylogenetic variance estimate
-sigma2_s <- vc_cond$vcov[match(nonphylo_name, vc_cond$grp)] # non-phylogenetic variance
+m2_re <- as.data.frame(confint(m2, parm="theta_"))
+sigma2_s <- m2_re$Estimate[1] # non-phylogenetic variance
+sigma2_p <- m2_re$Estimate[2] # phylogenetic variance estimate
 
 p.signal <- sigma2_p / (sigma2_p + sigma2_s)
 p.signal
@@ -1116,17 +1137,17 @@ p.signal
 ```
 
 
-On the log mean scale of the Gamma model, the phylogenetic species effect explained xxx% of the total species level random effect variance. This represents the degree of phylogenetic signal in the overall variance sourced from species.
+On the log mean scale of the Gamma model, the phylogenetic species effect explained 69.8% of the total species level random effect variance i.e. this represents the degree of phylogenetic signal in the overall variance sourced from species.
 
 
-Pairwise comparisons of body region brightness vs sex (add more description/explanation).
+To assess differences in total brightness between sexes for each body region, we compute marginal means from the fitted model and perform pairwise comparisons between females and males. The resulting ratios (female/male) and their confidence intervals are then plotted to visualise the magnitude and direction of differences across body regions.
+
 
 ```{r}
 #| output: true
 #| warnings: true
 #| eval: true
 
-library(emmeans)
 emm_b1 <- emmeans(m2, ~ sex | body_region, type = "response")
 b1_sex_diff <- contrast(emm_b1, method = "pairwise")
 
@@ -1140,30 +1161,32 @@ sex_diff_df$upper.CL <- sex_diff_df$ratio + sex_diff_df$SE
 sex_diff_df |> 
   arrange(ratio) |>
   mutate(body_region = factor(body_region, unique(body_region), ordered = T)) |> 
-ggplot(aes(x = body_region, y = ratio, color = body_region)) +
+ggplot(aes(y = body_region, x = ratio, color = body_region)) +
   geom_point(size = 3) +
-  geom_errorbar(aes(ymin = lower.CL, ymax = upper.CL), width = 0.2) +
-  geom_hline(yintercept = 1, linetype = "dashed", colour = "grey40") +
-  labs(x = "Body Region", y = "Female / Male Ratio", 
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
+  labs(y = "Body Region", x = "Female / Male Ratio", 
        title = "Brightness") +
   theme_bw() +
   theme(legend.position = "none")  # Optional: remove legend if redundant
 
-
 ```
 
+Ratios $>1$ indicate greater brightness in females, while ratios $<1$ indicate greater brightness in males.
 
 #### 2. Binary trait
 
 Binary pigment traits, such as the presence of carotenoid colors, may be associated with distinct evolutionary and ecological drivers. 
 
-Here we want to model the absence or presence of carotenoid across all body regions accounting for sex and including species- and phylogeny-level random effects.
+Here we want to model the absence or presence of carotenoid across all body regions accounting for sex and including species- and phylogeny-level random effects. We will use the carotenoid dataset to model based on the spectral reflectance data which we derived above.
+
 
 ##### Modelling carotenoid presence
 
+
 We will fit two models:
 -   Binomial model with a logit link function
--   Zero-inflated binomial model with a logit link function
+-   beta binomial model with a logit link function
 
 ```{r}
 #| eval: true
@@ -1172,33 +1195,33 @@ We will fit two models:
 
 # Fit models --------------
 
-# add grouping variable (set it to 1) - this is necessary to fit the glmmTMB model
-carot.dat$g <- 1
-
+# load dat
+carot.dat <- read_csv("data/carotenoid_data_for_model.csv")
+carot.dat$g <- 1 
+ 
 # binomial model
 time_binom <- system.time(
-  m3 <- glmmTMB(carotenoid ~ sex + + (1|species) + propto(0 + species|g,phylo.mat),
+  m3 <- glmmTMB(carotenoid ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
                 family = binomial(link = "logit"),
                 data = carot.dat)
 )
 
-# zero-inflated binomial
-time_zbinom <- system.time(
-  m4 <- glmmTMB(carotenoid ~ sex + + (1|species) + propto(0 + species|g,phylo.mat),
-                ziformula = ~1,
-                family = binomial(link = "logit"),
+# beta binomial
+time_bbinom <- system.time(
+  m4 <- glmmTMB(carotenoid ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
+                family = betabinomial(link = "logit"),
                 data = carot.dat)
 )
 
 # Get model info -----------
 
 carotmod_output <- data.frame(
-  model = c("Binomial", "Zero-inflated Binomial"),
+  model = c("Binomial", "Beta binomial"),
   convergence = c(m3$sdr$pdHess, m4$sdr$pdHess),
-  runtime = c(time_binom[["elapsed"]], time_zbinom[["elapsed"]]),
+  runtime = c(time_binom[["elapsed"]], time_bbinom[["elapsed"]]),
   AIC = c(AIC(m3), AIC(m4))
 )
-
+carotmod_output 
 
 ```
 
@@ -1220,13 +1243,13 @@ Now the model checks assuming zero inflated binomial distribution and log link f
 
 ```{r}
 #| cache: true 
-res_zbinom <- DHARMa::simulateResiduals(fittedModel = m4)
-plot(res_zbinom)
+res_bbinom <- DHARMa::simulateResiduals(fittedModel = m4)
+plot(res_bbinom)
 
 ```
 
 
-We found that the xxx shows improve model fit as the residual plots.
+We found that the binomial model has improved model fit in AIC and in the residual plots.
 
 
 ##### Model estimates
@@ -1234,6 +1257,33 @@ We found that the xxx shows improve model fit as the residual plots.
 Get model estimates:
 
 ```{r}
+
+library(emmeans)
+
+# Estimated marginal means on the response scale (odds)
+emm_m3 <- emmeans(m3, ~ sex | body_region, type = "response")
+
+# get contrasts (odds ratios)
+m3_sex_diff <- contrast(emm_m3, method = "pairwise") |> 
+  summary(infer = TRUE, type = "response")
+
+# Put into data frame for plotting
+sex_diff_df <- as.data.frame(m3_sex_diff) |>
+  rename(ratio = odds.ratio, lower.CL = asymp.LCL, upper.CL = asymp.UCL)
+
+# Plot
+sex_diff_df |>
+  arrange(ratio) |>
+  mutate(body_region = factor(body_region, unique(body_region), ordered = TRUE)) |>
+  ggplot(aes(y = body_region, x = ratio, colour = body_region)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
+  labs(y = "Body Region", x = "Female / Male Odds Ratio", 
+       title = "Sex differences in carotenoid presence") +
+  theme_bw() +
+  theme(legend.position = "none")
+
 
 ```
 
@@ -1245,42 +1295,85 @@ Get model estimates:
 The ordinal trait is the percentage of body region with carotenoid presence. We will fit a beta-binomial and  model to this trait, which is suitable for modeling proportions.
 
 
-##### Modelling carotenoid percentage
+##### Modelling carotenoid proportion per body region
 
 
+```{r}
+#| cache: true 
+
+# load data
+ord.dat <- read_csv("data/ordinal_data_for_model.csv")
+ord.dat$g <- 1 # add grouping variable 
+
+# fit model 
+time_ord <- system.time(
+  m5 <- glmmTMB(prop_carotenoid ~ sex + (1|species) + propto(0 + species|g,phylo.mat),
+                  family = ordbeta(),
+                  data = ord.dat)
+)
+
+# output
+data.frame(
+  model = "Ordinal beta",
+  convergence = m5$sdr$pdHess,
+  runtime = time_ord[["elapsed"]]
+)
+
+```
 
 
 ##### Model diagnostics
 
+Look at residual diagnostic plots:
 
+```{r}
+#| cache: true 
+res_ord <- DHARMa::simulateResiduals(fittedModel = m5)
+plot(res_ord)
+
+```
 
 
 
 ##### Model estimates
 
+Now look at the difference in the proportion of carotenoid colour between females and males from the ordinal beta model (m5), and plot the model-based estimate with its 95% confidence interval on the response scale.
 
+
+```{r}
+
+emm_m5 <- emmeans(m5, ~ sex, type = "response")
+
+# pairwise contrast: Female vs Male
+m5_sex_OR <- contrast(emm_m5, method = "pairwise") |>
+  summary(infer = TRUE, type = "response")
+
+# get summary with CI
+sex_OR <- as.data.frame(m5_sex_OR) |>
+  rename(OR = odds.ratio, lower.CL = asymp.LCL, upper.CL = asymp.UCL)
+
+sex_OR
+```
 
 
 
 ## Case study 2: Evolution of plant hydraulic traits
 
-We re-analyse the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models, but here we will use the `glmmTMB` packages to fit the models.
+We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models, but here we will use the `glmmTMB` packages to fit the models and assess different sampling distributions. NOTE: or just compare with MCMCglmm and show that glmmTMB is faster and has added functionality of gamma?
 
-(negative binomial distribution/zero inflation)
+(log gaussian + gamma + MCMCglmm )
 
 ### Data overview
 
 ```{r}
-#| eval: true
-#| echo: false
-
 # Load plant hydraulic traits dataset
 hydra.dat <- read_csv("data/HydraEvol2020.csv")
 
 # Have a look at distribution of traits
 hist(hydra.dat$Ks, breaks = 50, main = "Distribution of Ks", xlab = "Ks")
-hist(hydra.dat$Hv, breaks = 50, main = "Distribution of Hv", xlab = "Hv")
 hist(hydra.dat$P50, breaks = 50, main = "Distribution of P50", xlab = "P50")
+
+
 ```
 
 ### Phylogenetic tree
@@ -1288,27 +1381,45 @@ hist(hydra.dat$P50, breaks = 50, main = "Distribution of P50", xlab = "P50")
 ```{r}
 
 # Load bird tree (consensus tree = "combined tree")
-plant.tree <- ape::read.tree(here("data/genus-level_phylogeny.tre"))
+plant.tree <- ape::read.tree("data/genus-level_phylogeny.tre")
 # plot tree
 plotTree(plant.tree, ftype="i", fsize=0.4, lwd=1, type="fan")
+
 ```
 
 
 
 ### Models
 
+First let's set up the models for glmmTMB:
+- Try gamma model
+- Log(response) gaussian
+
+```{r}
+
+# log_Ks ~ animal + genus.Rand
+# log_negP50 ~ animal + genus.Rand
+# log_Hv ~ animal + genus.Rand
+# log_negMinWP_md ~ animal + genus.Rand
+
+```
+
+
+Same models with MCMCglmm
 
 ```{r}
 
 ```
 
+Compare model outputs + run time
+
+
+
+### Model results
 
 ```{r}
 
 ```
-
-
-
 
 
 
