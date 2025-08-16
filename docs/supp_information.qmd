@@ -1,28 +1,33 @@
 ---
-title: "Supporting Information for: *Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package*"
+title: "Supporting Information for:\n *Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package*"
 author: "Coralie Williams, Maeve McGillycuddy, Szymek M. Drobniak, Ben M. Bolker, David I. Warton, Shinichi Nakagawa"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+
+website:
+  favicon: favicon.ico
+
 format:
   html:
-    page-layout: full
     toc: true
     toc-location: left
     toc-depth: 3
-    theme: materia
+    theme: flatly
     embed-resources: true
     code-fold: show
     code-tools: true
     number-sections: true
     number-depth: 2
     footnote-location: margin
-favicon: "favicon.ico"
+
 editor_options: 
   chunk_output_type: console
-
 ---
-
+    
 <!-- -   make sure to use package name:: as much as possible -->
 <!-- -   make diagnostics of models using DHARMA (or glmmTMB diagnostics) -->
+<!-- setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs") -->
+<!-- page-layout: full -->
+
 
 # Overview
 
@@ -44,7 +49,6 @@ pacman::p_load(
   geiger, data.table, pavo, MASS, glmmTMB, brms, MCMCglmm, phyr, INLA, broom.mixed,
   knitr, bayestestR, performance, rbenchmark, here, DHARMa, emmeans
 )
-#setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs")
 
 options(digits = 4, scipen = 5)
 ```
@@ -180,9 +184,6 @@ To fit the model using `phyr` package we use the `cov_ranef` argument to specify
 
 ```{r}
 #| cache: true 
-#| eval: true
-#| echo: false
-#| warnings: false
 #| label: Simulated phyr model
 
 
@@ -202,8 +203,6 @@ To fit the MCMCglmm model we first we need to set up a precision matrix for the 
 
 ```{r}
 #| cache: true 
-#| eval: true
-#| echo: false
 #| label: Simulated MCMCglmm model
 
 # get precision phylo matrix and order rows
@@ -251,9 +250,6 @@ To fit the model using the `brms` package we specify the random effects using th
 
 ```{r}
 #| cache: true 
-#| eval: true
-#| echo: false
-#| warnings: false
 #| label: Simulated brms model
 
 time.brms <- system.time({
@@ -289,8 +285,6 @@ For the `INLA` package we set up the model using the `f()` function to specify t
 
 ```{r}
 #| cache: true 
-#| eval: true
-#| echo: true
 #| label: Simulated INLA model
 
 # set up recommended penalizing complexity priors 
@@ -561,7 +555,6 @@ runtime_1_pre <- benchmark(
         }, replications = 1
 )
 
-runtime_1_pre$elapsed
 ```
 
 Run full reasonable model (like above). Extract MCMC trace.
@@ -608,7 +601,6 @@ runtime_1_run <- benchmark(
         }, replications = 1
 )
 
-runtime_1_run$elapsed - runtime_1_pre$elapsed
 ```
 
 ### BRMS
@@ -626,7 +618,7 @@ Run a model that prepares the run but does not start actual sampling to have the
 
 ```{r}
 #| cache: true 
-#| warnings: false
+#| results: "hide"
 
 runtime_2_pre <- benchmark(
     "process" = {
@@ -641,14 +633,13 @@ runtime_2_pre <- benchmark(
     }, replications = 1
 )
 
-runtime_2_pre$elapsed
 ```
 
 Run "larger" model and convert posterior to MCMC object.
 
 ```{r}
+#| results: "hide"
 #| cache: true 
-#| warnings: false
 model_brms_max <- brm(yi ~ x + (1|species) + (1|gr(phylo, cov = phylo.mat)),
             data = dat,
             data2 = list(phylo.mat = phylo.mat),
@@ -683,10 +674,22 @@ runtime_2_run <- benchmark(
     }, replications = 1
 )
 
-runtime_2_run$elapsed - runtime_2_pre$elapsed
 ```
 
+### Summary runtimes
 
+Summary table of runtimes for compilation and sampling:
+
+```{r}
+time.summary <- data.frame(
+  model = c("MCMCglmm", "brms"),
+  compil.time = c(runtime_1_pre$elapsed, runtime_2_pre$elapsed),
+  sampling.time = c(runtime_1_run$elapsed - runtime_1_pre$elapsed, runtime_2_run$elapsed - runtime_2_pre$elapsed)
+)
+
+kable(time.summary)
+
+```
 
 
 # Case studies
@@ -1007,13 +1010,7 @@ saveRDS(phylo.mat, file = "data/phylo_matrix.rds")
 ```
 
 
-### Models
-
-(1) Continuous trait (brightness): we compare models with distributions of gaussian, lognormal, gamma, and skew normal.
-(2) Binary trait (absence/presence of color): binomial distribution.
-(3) Ordinal trait (100% of body region with color): beta binomial.
-
-#### 1. Continuous trait
+### Model 1. Continuous trait
 
 ```{r}
 #| eval: true
@@ -1102,7 +1099,6 @@ Let's check residual plots with the DHARMa packages. First, the log(B1) assuming
 #| cache: true 
 res_gauss <- DHARMa::simulateResiduals(fittedModel = m1)
 plot(res_gauss)
-
 ```
 
 
@@ -1112,7 +1108,6 @@ The model checks assuming Gamma distribution and log link function:
 #| cache: true 
 res_gamma <- DHARMa::simulateResiduals(fittedModel = m2)
 plot(res_gamma)
-
 ```
 
 
@@ -1121,23 +1116,45 @@ We found that the Gamma distribution shows improve model fit as the residual plo
 
 ##### Model estimates
 
-Let's obtain the estimate of the phylogenetic signal in the :
+Let's obtain the estimate of the phylogenetic signal and non-phylogenetic signal for the Gamma model:
 
 ```{r}
 #| output: true
 #| cache: true 
 
+# get random effect component estimates on SD-scale 
 m2_re <- as.data.frame(confint(m2, parm="theta_"))
-sigma2_s <- m2_re$Estimate[1] # non-phylogenetic variance
-sigma2_p <- m2_re$Estimate[2] # phylogenetic variance estimate
+sigma2_s <- m2_re$Estimate[1]^2 # non-phylogenetic variance
+sigma2_p <- m2_re$Estimate[2]^2 # phylogenetic variance estimate
 
 p.signal <- sigma2_p / (sigma2_p + sigma2_s)
 p.signal
 
+np.signal <- 1-p.signal
+np.signal
+
 ```
 
 
-On the log mean scale of the Gamma model, the phylogenetic species effect explained 69.8% of the total species level random effect variance i.e. this represents the degree of phylogenetic signal in the overall variance sourced from species.
+On the log mean scale of the Gamma model, the phylogenetic species effect explained 84.2% of the total species level random effect variance i.e. this represents the degree of phylogenetic signal in the overall variance sourced from species. The non-phylogenetic effect explained 15.8% of the total species level random effect variance.
+
+We can obtain and compare the residual variances for each model with the following:
+
+```{r}
+
+# residual of gaussian model
+m1_res <- sigma(m1)
+
+# residual of gamma model
+m2_res <- trigamma(exp(unname(m2$fit$par["betadisp"])) )
+
+# print
+data.frame(
+  model = c("Gaussian (log)", "Gamma"),
+  residual_variance = c(m1_res^2, m2_res)
+)
+
+```
 
 
 To assess differences in total brightness between sexes for each body region, we compute marginal means from the fitted model and perform pairwise comparisons between females and males. The resulting ratios (female/male) and their confidence intervals are then plotted to visualise the magnitude and direction of differences across body regions.
@@ -1149,32 +1166,32 @@ To assess differences in total brightness between sexes for each body region, we
 #| eval: true
 
 emm_b1 <- emmeans(m2, ~ sex | body_region, type = "response")
-b1_sex_diff <- contrast(emm_b1, method = "pairwise")
 
+# get contrasts (ratios) back transformed on response scale with CI
+b1_sex_diff <- contrast(emm_b1, method = "pairwise", reverse=TRUE) |> 
+  summary(infer = TRUE, type = "response")
 
-## Transform to response scale as a ratio
-sex_diff_df <- as.data.frame(b1_sex_diff)
-sex_diff_df$lower.CL <- sex_diff_df$ratio - sex_diff_df$SE
-sex_diff_df$upper.CL <- sex_diff_df$ratio + sex_diff_df$SE
 
 ## plot pairwise differences between female and male total brightness
-sex_diff_df |> 
+b1_sex_diff |>
   arrange(ratio) |>
-  mutate(body_region = factor(body_region, unique(body_region), ordered = T)) |> 
-ggplot(aes(y = body_region, x = ratio, color = body_region)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  mutate(
+    body_region = factor(body_region, unique(body_region), ordered = TRUE)) |>
+  ggplot(aes(y = body_region, x = ratio)) +
+  geom_point(size = 3, colour = "#7B5EA9") + 
+  geom_errorbar(aes(xmin = asymp.LCL, xmax = asymp.UCL), 
+                width = 0.2, colour = "#7B5EA9") +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
   labs(y = "Body Region", x = "Female / Male Ratio", 
        title = "Brightness") +
   theme_bw() +
-  theme(legend.position = "none")  # Optional: remove legend if redundant
+  theme(legend.position = "none")
 
 ```
 
 Ratios $>1$ indicate greater brightness in females, while ratios $<1$ indicate greater brightness in males.
 
-#### 2. Binary trait
+### Model 2. Binary trait
 
 Binary pigment traits, such as the presence of carotenoid colors, may be associated with distinct evolutionary and ecological drivers. 
 
@@ -1186,11 +1203,9 @@ Here we want to model the absence or presence of carotenoid across all body regi
 
 We will fit two models:
 -   Binomial model with a logit link function
--   beta binomial model with a logit link function
+-   Beta binomial model with a logit link function
 
 ```{r}
-#| eval: true
-#| echo: true
 #| cache: true
 
 # Fit models --------------
@@ -1254,30 +1269,46 @@ We found that the binomial model has improved model fit in AIC and in the residu
 
 ##### Model estimates
 
-Get model estimates:
+Let's obtain the estimate of the phylogenetic signal for this model:
 
 ```{r}
+#| cache: true 
+# get random effect component estimates on SD-scale
+m3_re <- as.data.frame(confint(m3, parm="theta_"))
 
-library(emmeans)
+sigma2_s <- m3_re$Estimate[1]^2 # non-phylogenetic variance
+sigma2_p <- m3_re$Estimate[2]^2 # phylogenetic variance estimate
+
+p.signal <- sigma2_p / (sigma2_p + sigma2_s)
+p.signal
+
+```
+
+
+Get model estimated marginals means on the response scale:
+
+```{r}
 
 # Estimated marginal means on the response scale (odds)
 emm_m3 <- emmeans(m3, ~ sex | body_region, type = "response")
 
 # get contrasts (odds ratios)
-m3_sex_diff <- contrast(emm_m3, method = "pairwise") |> 
+m3_sex_prob <- contrast(emm_m3, method = "pairwise", reverse=TRUE) |> 
   summary(infer = TRUE, type = "response")
 
 # Put into data frame for plotting
-sex_diff_df <- as.data.frame(m3_sex_diff) |>
+sex_prob_df <- as.data.frame(m3_sex_prob) |>
   rename(ratio = odds.ratio, lower.CL = asymp.LCL, upper.CL = asymp.UCL)
 
 # Plot
-sex_diff_df |>
+sex_prob_df |>
   arrange(ratio) |>
+  filter(!(body_region=="back")) |>
   mutate(body_region = factor(body_region, unique(body_region), ordered = TRUE)) |>
   ggplot(aes(y = body_region, x = ratio, colour = body_region)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), width = 0.2) +
+  geom_point(size = 3, colour = "#4B6EA5") + 
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), 
+                width = 0.2, colour = "#4B6EA5") +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
   labs(y = "Body Region", x = "Female / Male Odds Ratio", 
        title = "Sex differences in carotenoid presence") +
@@ -1290,7 +1321,7 @@ sex_diff_df |>
 
 
 
-#### 3. Ordinal trait (TBD)
+### Model 3. Ordinal trait 
 
 The ordinal trait is the percentage of body region with carotenoid presence. We will fit a beta-binomial and  model to this trait, which is suitable for modeling proportions.
 
@@ -1316,10 +1347,28 @@ time_ord <- system.time(
 data.frame(
   model = "Ordinal beta",
   convergence = m5$sdr$pdHess,
-  runtime = time_ord[["elapsed"]]
+  runtime = time_ord[["elapsed"]],
+  AIC = AIC(m5)
 )
 
 ```
+
+
+
+<!-- time_norm <- system.time( -->
+<!--   m6 <- glmmTMB(prop_carotenoid ~ sex + (1|species) + propto(0 + species|g,phylo.mat), -->
+<!--                   family = gaussian(), -->
+<!--                   data = ord.dat) -->
+<!-- ) -->
+
+
+<!-- # output -->
+<!-- data.frame( -->
+<!--   model = c("Ordinal beta", "gaussian"), -->
+<!--   convergence = c(m5$sdr$pdHess, m6$sdr$pdHess), -->
+<!--   runtime = c(time_ord[["elapsed"]], time_norm[["elapsed"]]), -->
+<!--   AIC = c(AIC(m5), AIC(m6)) -->
+<!-- ) -->
 
 
 ##### Model diagnostics
@@ -1333,9 +1382,28 @@ plot(res_ord)
 
 ```
 
+<!-- res_norm <- DHARMa::simulateResiduals(fittedModel = m6) -->
+<!-- plot(res_norm) -->
 
 
 ##### Model estimates
+
+Phylogenetic signal:
+
+```{r}
+#| output: true
+#| cache: true 
+# get random effect component estimates on SD-scale
+m5_re <- as.data.frame(confint(m5, parm="theta_"))
+
+sigma2_s <- m5_re$Estimate[1]^2 # non-phylogenetic variance
+sigma2_p <- m5_re$Estimate[2]^2 # phylogenetic variance estimate
+
+p.signal.m5 <- sigma2_p / (sigma2_p + sigma2_s)
+p.signal.m5
+
+```
+
 
 Now look at the difference in the proportion of carotenoid colour between females and males from the ordinal beta model (m5), and plot the model-based estimate with its 95% confidence interval on the response scale.
 
@@ -1357,11 +1425,10 @@ sex_OR
 
 
 
-## Case study 2: Evolution of plant hydraulic traits
+## Case study 2: Evolution of plant hydraulic traits (TBD)
 
-We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models, but here we will use the `glmmTMB` packages to fit the models and assess different sampling distributions. NOTE: or just compare with MCMCglmm and show that glmmTMB is faster and has added functionality of gamma?
+We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models, but here we will use the `glmmTMB` packages to fit the models and assess different sampling distributions.
 
-(log gaussian + gamma + MCMCglmm )
 
 ### Data overview
 
@@ -1389,7 +1456,7 @@ plotTree(plant.tree, ftype="i", fsize=0.4, lwd=1, type="fan")
 
 
 
-### Models
+### 1. Model for Ks
 
 First let's set up the models for glmmTMB:
 - Try gamma model
@@ -1397,10 +1464,8 @@ First let's set up the models for glmmTMB:
 
 ```{r}
 
-# log_Ks ~ animal + genus.Rand
 # log_negP50 ~ animal + genus.Rand
-# log_Hv ~ animal + genus.Rand
-# log_negMinWP_md ~ animal + genus.Rand
+
 
 ```
 
@@ -1411,15 +1476,65 @@ Same models with MCMCglmm
 
 ```
 
+#### Diagnostic plots
+
+
+
+
+
+#### Results
+
 Compare model outputs + run time
-
-
-
-### Model results
 
 ```{r}
 
 ```
+
+Get phylogenetic signal from glmmTMB model for both traits
+
+```{r}
+
+```
+
+
+
+
+### 2. Model for P50
+
+First let's set up the models for glmmTMB:
+- Try gamma model
+- Log(response) gaussian
+
+```{r}
+# log_negP50 ~ animal + genus.Rand
+
+
+```
+
+
+Same models with MCMCglmm
+
+```{r}
+
+```
+
+#### Diagnostics
+
+#### Results
+
+Compare model outputs + run time
+
+```{r}
+
+```
+
+Get phylogenetic signal from glmmTMB model for both traits
+
+```{r}
+
+```
+
+
 
 
 
