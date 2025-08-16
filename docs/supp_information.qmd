@@ -698,13 +698,17 @@ kable(time.summary)
 
 The following case studies illustrate how phylogenetic mixed models can be applied to diverse questions in ecology and evolution. The first examines patterns of plumage colour in birds, while the second explores macroevolutionary patterns in plant traits. Together, they demonstrate the flexibility of these methods across taxa and research questions.
 
-All models, results, and datasets presented in these case studies are **intended solely for illustrative purposes**. They are designed to demonstrate analytical approaches rather than to provide definitive biological insights. No substantive conclusions should be drawn from these analyses.
+All models, results, and datasets presented in these case studies are **intended for illustrative purposes only**. They are designed to demonstrate analytical approaches rather than to provide definitive biological insights. No substantive conclusions should be drawn from these analyses.
+
 
 ## Case study 1: Bird color evolution
 
 Birds are a valuable system for studying ecological and evolutionary processes because their diversity in form, behaviour, and coloration is well documented across many species and habitats. Variation in plumage colour, in particular, can provide insights into mechanisms such as sexual selection, camouflage, and signalling. By examining these traits, researchers can better understand how environmental and evolutionary pressures shape biodiversity.
 
-<!-- Maybe add some picture of birds: https://unsplash.com/s/photos/bird -->
+![Image credits:](bird_color.png)
+
+<span style="color:grey; font-size:0.9em;">Image credits: Andy Chilton, Boris Smokrovic, David Clode, Jaime Spaniol, Joshua J. Cotte, Vincent Van Zalinge.</span>
+
 
 ### Data overview
 
@@ -1430,6 +1434,9 @@ sex_OR
 We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models, but here we will use the `glmmTMB` packages to fit the models and assess different sampling distributions.
 
 
+![Image credits:](plant_trait.jpeg)
+
+
 ### Data overview
 
 ```{r}
@@ -1457,6 +1464,8 @@ plotTree(plant.tree, ftype="i", fsize=0.4, lwd=1, type="fan")
 
 
 ### 1. Model for Ks
+
+Plant species with high saturated hydraulic conductivity (kS) are able to transport water through their xylem more efficiently, and are therefore characterised as highly efficient in water transport.
 
 First let's set up the models for glmmTMB:
 - Try gamma model
@@ -1500,6 +1509,9 @@ Get phylogenetic signal from glmmTMB model for both traits
 
 
 ### 2. Model for P50
+
+P50 represents the level of water stress at which a tree experiences a 50% loss of hydraulic conductivity. More negative P50 values indicate that trees can withstand greater hydraulic stress before suffering hydraulic damage, so communities with lower P50s are considered more resilient to increasing water stress (Trugman et al., 2020).
+
 
 First let's set up the models for glmmTMB:
 - Try gamma model
@@ -1549,6 +1561,9 @@ Hadfield, J. D. (2024, May). MCMCglmm: MCMC Generalised Linear Mixed Models. Ret
 Montgomerie R. 2006. Analyzing colors. In Hill, G.E, and McGraw, K.J., eds. Bird Coloration. Volume 1 Mechanisms and measurements. Harvard University Press, Cambridge, Massachusetts.
 
 Sanchez-Martinez, P., Martinez-Vilalta, J., Dexter, K. G., Segovia, R. A., & Mencuccini, M. (2020). Adaptation and coordinated evolution of plant hydraulic traits. Ecology Letters, 23 (11), 1599–1610. https://doi.org/10.1111/ele.13584
+
+Trugman, A. T., Anderegg, L. D. L., Shaw, J. D., & Anderegg, W. R. L. (2020). Trait velocities reveal that mortality has driven widespread coordinated shifts in forest hydraulic trait composition. Proceedings of the National Academy of Sciences, 117(15), 8532–8538. https://doi.org/10.1073/pnas.1917521117
+
 
 # Session information
 
