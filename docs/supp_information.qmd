@@ -11,7 +11,7 @@ format:
     toc: true
     toc-location: left
     toc-depth: 3
-    theme: flatly
+    theme: default
     embed-resources: true
     code-fold: show
     code-tools: true
@@ -281,7 +281,8 @@ print(bayestestR::diagnostic_posterior(model_brms), digits = 4)
 
 ### Run model with `INLA`
 
-For the `INLA` package we set up the model using the `f()` function to specify the random effects. The `model = "iid"` argument indicates that we want to use an independent and identically distributed (iid) random effect for species, while the `model = "generic0"` argument is used for the phylogenetic random effect. The `Cmatrix` argument is used to specify the phylogenetic correlation matrix. We also set up a penalizing complexity prior for the precision of the phylogenetic random effect (suggested by xxxx don't have a ref but can mention it?).
+For the `INLA` package we set up the model using the `f()` function to specify the random effects. The `model = "iid"` argument indicates that we want to use an independent and identically distributed (iid) random effect for species, while the `model = "generic0"` argument is used for the phylogenetic random effect. The `Cmatrix` argument is used to specify the phylogenetic correlation matrix. 
+We note that priors can be 
 
 ```{r}
 #| cache: true 
@@ -705,9 +706,9 @@ All models, results, and datasets presented in these case studies are **intended
 
 Birds are a valuable system for studying ecological and evolutionary processes because their diversity in form, behaviour, and coloration is well documented across many species and habitats. Variation in plumage colour, in particular, can provide insights into mechanisms such as sexual selection, camouflage, and signalling. By examining these traits, researchers can better understand how environmental and evolutionary pressures shape biodiversity.
 
-![Image credits:](bird_color.png)
+![](bird_color.png)
 
-<span style="color:grey; font-size:0.9em;">Image credits: Andy Chilton, Boris Smokrovic, David Clode, Jaime Spaniol, Joshua J. Cotte, Vincent Van Zalinge.</span>
+<span style="color:grey; font-size:0.9em;">credits: Andy Chilton, Boris Smokrovic, David Clode, Jaime Spaniol, Joshua J. Cotte, Vincent Van Zalinge / unsplash.com.</span>
 
 
 ### Data overview
@@ -1040,24 +1041,21 @@ The brightness trait is right-skewed (as shown above), which is consistent with 
 
 For each model we will examine simulated standardised residuals using \texttt{DHARMa} to assess nonlinearity and heteroscedasticity. If two or more models perform similarly, we will prefer the model with clearer interpretation on the original scale.
 
-
+<!-- # Little checks --------- -->
+<!-- library(fitdistrplus) -->
+<!-- descdist(spec.dat$B1, discrete=FALSE) -->
+<!-- gamma_dist <- fitdist(spec.dat$B1, "gamma") -->
+<!-- plot(gamma_dist) -->
+<!-- norm_dist <- fitdist(log(spec.dat$B1), "norm") -->
+<!-- plot(norm_dist) -->
+<!-- lnorm_dist <- fitdist(spec.dat$B1, "lnorm") -->
+<!-- plot(lnorm_dist) -->
 
 ```{r}
 #| output: true
 #| warnings: true
 #| eval: true
 #| cache: true 
-
-# # Little checks ---------
-# library(fitdistrplus)
-# descdist(spec.dat$B1, discrete=FALSE)
-# gamma_dist <- fitdist(spec.dat$B1, "gamma")
-# plot(gamma_dist)
-# norm_dist <- fitdist(log(spec.dat$B1), "norm")
-# plot(norm_dist)
-# lnorm_dist <- fitdist(spec.dat$B1, "lnorm")
-# plot(lnorm_dist)
-
 
 # Fit models --------------
 
@@ -1075,12 +1073,6 @@ time_gamma <- system.time(
                       data = spec.dat)
 )
 
-# # Lognormal ---> not working get an error that the link function is not supported?
-# t_lnorm <- system.time(
-#   modb1_lnorm <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), family = lognormal(link = "log"), data = spec.dat)
-# )
-
-
 # Get model info  ---------------------------
 # check whether model has postive definite hessian
 
@@ -1093,6 +1085,11 @@ b1_output <- data.frame(
 b1_output
 
 ```
+
+<!-- # Lognormal not working get an error that the link function is not supported? -->
+<!-- t_lnorm <- system.time( -->
+<!--    modb1_lnorm <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), family = lognormal(link = "log"), data = spec.dat) -->
+<!-- ) -->
 
 
 ##### Model diagnostics
@@ -1146,16 +1143,18 @@ We can obtain and compare the residual variances for each model with the followi
 
 ```{r}
 
-# residual of gaussian model
-m1_res <- sigma(m1)
+# residual variance of gaussian model
+m1_res.var <- sigma(m1)^2
 
-# residual of gamma model
-m2_res <- trigamma(exp(unname(m2$fit$par["betadisp"])) )
+# residual variance of gamma model
+phi <- sigma(m2)^2 #phi given on SD-scale
+scale <- 1/phi #derive scale parameter
+m2_res.var <- trigamma(scale)
 
 # print
 data.frame(
   model = c("Gaussian (log)", "Gamma"),
-  residual_variance = c(m1_res^2, m2_res)
+  residual_variance = c(m1_res.var, m2_res.var)
 )
 
 ```
@@ -1197,10 +1196,9 @@ Ratios $>1$ indicate greater brightness in females, while ratios $<1$ indicate g
 
 ### Model 2. Binary trait
 
-Binary pigment traits, such as the presence of carotenoid colors, may be associated with distinct evolutionary and ecological drivers. 
+Binary colour traits, such as the presence of carotenoid colours, may be associated with distinct evolutionary and ecological drivers. 
 
-Here we want to model the absence or presence of carotenoid across all body regions accounting for sex and including species- and phylogeny-level random effects. We will use the carotenoid dataset to model based on the spectral reflectance data which we derived above.
-
+Here we want to model the absence or presence of carotenoid across all body regions accounting for sex and including species- and phylogeny-level random effects. We will use the carotenoid dataset which we obtained earlier. 
 
 ##### Modelling carotenoid presence
 
@@ -1400,8 +1398,8 @@ Phylogenetic signal:
 # get random effect component estimates on SD-scale
 m5_re <- as.data.frame(confint(m5, parm="theta_"))
 
-sigma2_s <- m5_re$Estimate[1]^2 # non-phylogenetic variance
-sigma2_p <- m5_re$Estimate[2]^2 # phylogenetic variance estimate
+sigma2_s <- m5_re$Estimate[1]^2 # non-phylogenetic variance est.
+sigma2_p <- m5_re$Estimate[2]^2 # phylogenetic variance est.
 
 p.signal.m5 <- sigma2_p / (sigma2_p + sigma2_s)
 p.signal.m5
@@ -1431,10 +1429,11 @@ sex_OR
 
 ## Case study 2: Evolution of plant hydraulic traits (TBD)
 
-We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models, but here we will use the `glmmTMB` packages to fit the models and assess different sampling distributions.
+We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models with `MCMCglmm` package. Here we will use the `glmmTMB` packages to fit the models with different sampling distributions and compare with `MCMCglmm`. Again all results are for illustrative purpose only and we do not intend to infer any biological or ecological conclusions from our results. 
 
 
-![Image credits:](plant_trait.jpeg)
+![](plant_trait.jpeg)
+<span style="color:grey; font-size:0.9em;">credits: Chanya_B / stock.adobe.com</span>
 
 
 ### Data overview
