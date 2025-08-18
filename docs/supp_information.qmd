@@ -1,10 +1,9 @@
 ---
-title: "Supporting Information for:\n *Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package*"
+title: "Supporting Information for:\n Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package"
 author: "Coralie Williams, Maeve McGillycuddy, Szymek M. Drobniak, Ben M. Bolker, David I. Warton, Shinichi Nakagawa"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 
-website:
-  favicon: favicon.ico
+favicon: favicon.ico
 
 format:
   html:
@@ -22,12 +21,14 @@ format:
 editor_options: 
   chunk_output_type: console
 ---
-    
-<!-- -   make sure to use package name:: as much as possible -->
-<!-- -   make diagnostics of models using DHARMA (or glmmTMB diagnostics) -->
-<!-- setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs") -->
-<!-- page-layout: full -->
 
+<!-- -   make sure to use package name:: as much as possible -->
+
+<!-- -   make diagnostics of models using DHARMA (or glmmTMB diagnostics) -->
+
+<!-- setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs") -->
+
+<!-- page-layout: full -->
 
 # Overview
 
@@ -53,21 +54,24 @@ pacman::p_load(
 options(digits = 4, scipen = 5)
 ```
 
-This webpage provides supporting information for the manuscript "*Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package*". The webpage is organised into three sections:
-(1)   First, we describe the simulated models and data-generating mechanisms for each of the five evaluated R packages for fitting PGLMMs
-(2)   We then use the simulated data to illustrate compilation and sampling runtimes for the Bayesian MCMC models.
-(3)   Finally, we presents two case studies illustrating the application of these methods to ecological and evolutionary data, the first on bird color traits and the second on plant traits. 
+This webpage provides supporting information for the manuscript "Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package" where we showcase the [*propto*](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html#proportional) (proportional to) covariance structure in the `glmmTMB` R package.
 
+This webpage is organised in three sections:
 
-For comments or questions, please contact the corresponding author at [coralie.williams@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or [coraliewilliams@outlook.com](coraliewilliams@outlook.com).
+1.  First, we describe the simulated models and data-generating mechanisms for each of the five evaluated R packages for fitting PGLMMs
 
+2.  We then use the simulated data to illustrate compilation and sampling runtimes for the Bayesian MCMC models.
 
+3.  Finally, we presents two case studies illustrating the application of these methods to ecological and evolutionary data, the first on bird color traits and the second on plant traits.
+
+For comments, questions, or if you see an error please contact the corresponding author, Coralie Williams ([coralie.williams\@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or [coraliewilliams\@outlook.com](coraliewilliams@outlook.com)).
 
 # Models
 
 We demonstrate and explain how to fit phylogenetic generalized mixed models (PGLMM) using five different packages which we used in our simulation study: `glmmTMB`, `phyr`, `MCMCglmm`, `brms`, and `INLA`. The models are fitted to one simulated dataset using a randomly generated phylogenetic tree and a set of model parameters. We compare the performance of these packages in terms of runtime, accuracy, and bias of the fixed effect mean and random effect variance estimates.
 
 <!-- ::: panel-tabset -->
+
 <!-- ## Repeated measures per species -->
 
 We assume a set of trait measures $y_{ij}$ repeated measure (observation) $i$ and for each species $j$. The model is specified as follows:
@@ -124,7 +128,7 @@ dat <- data.frame(obs = 1:n, x = x, species = sp.id)
 # simulate tree and obtain phylo matrix
 tree <- rtree(k.species, tip.label = seq_len(k.species))
 tree <- compute.brlen(tree, power=1) # power of 1 means ultra-metric tree
-phylo.mat <- vcv(tree, corr = TRUE) ## we want a correlation matrix (bounded by -1 and 1)
+phylo.mat <- vcv(tree, corr = TRUE) # we want a correlation matrix (bounded by -1 and 1) ultrametric tree
 phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(rownames(phylo.mat)))]
 
 
@@ -163,7 +167,6 @@ The model output will provide the fixed effect estimates, random effect variance
 #| echo: true
 #| label: Simulated glmmTMB model
 
-
 # repeated measures per species
 time.glmmTMB <- system.time({
   model_glmmTMB <- glmmTMB(yi ~ x + (1|species) + propto(0 + species|g, phylo.mat),
@@ -176,6 +179,41 @@ Check if the model converged (i.e. returns `TRUE` if the Hessian is positive def
 
 ```{r}
 model_glmmTMB$sdr$pdHess
+```
+
+We can then get the fixed effect estimates and their confidence intervals:
+
+```{r}
+coefs_tmb <- as.data.frame(confint(model_glmmTMB, parm="beta_"))
+coefs_tmb
+```
+
+The random effect component estimates are on the standard deviation scales fron the `confint` function, so we need to square them to get the variance estimates. We also compute the standard error and confidence intervals on the variance scale using the delta method.
+
+```{r}
+re_tmb <- as.data.frame(confint(model_glmmTMB, parm="theta_")) # on standard deviation scale
+re_tmb
+
+# Compute variance, SE (delta method), and CI on variance scale)
+var_est <- re_tmb$Estimate^2
+var_se <- 2 * re_tmb$Estimate * (re_tmb$`97.5 %` - re_tmb$`2.5 %`) / (2 * 1.96)
+var_ci_low <- re_tmb$`2.5 %`^2
+var_ci_high <- re_tmb$`97.5 %`^2
+
+# Residual variance
+resid_var <- sigma(model_glmmTMB)^2
+
+# Combine results
+sigma2_tmb <- data.frame(
+  model = "glmmTMB",
+  group = c("phylo", "species", "Residual"),
+  term = "var",
+  estimate = c(var_est, resid_var),
+  std.error = c(var_se, NA),
+  conf.low = c(var_ci_low, NA),
+  conf.high = c(var_ci_high, NA))
+
+sigma2_tmb
 ```
 
 ### Run model with `phyr`
@@ -196,21 +234,55 @@ time.phyr <- system.time({
 
 ```
 
+Obtain fixed effect estimates from model:
+
+```{r}
+coefs_phyr <- as.data.frame(fixef(model_phyr))
+coefs_phyr$conf.low[2] <- coefs_phyr$Value[2] - coefs_phyr$Std.Error[2]*1.96
+coefs_phyr$conf.high[2] <- coefs_phyr$Value[2] + coefs_phyr$Std.Error[2]*1.96
+```
+
+Obtain the random effect and residual variance estimates. Note that `phyr` provides them on the standard deviation scale.
+
+```{r}
+# get phyr random effect variance estimates 
+var_re_phyr <- c(as.numeric(model_phyr$ss[2])^2, #phylogenetic 
+                 as.numeric(model_phyr$ss[1])^2, #non-phylogenetic 
+                 as.numeric(model_phyr$ss[3])^2) #residual 
+
+
+# combine into dataframe
+sigma2_phyr <- data.frame(
+  model = "phyr",
+  group = c("phylo", "species", "Residual"),
+  term = "var",
+  estimate = var_re_phyr,
+  std.error = NA,
+  conf.low = NA, 
+  conf.high = NA 
+)
+
+sigma2_phyr
+```
 
 ### Run model with `MCMCglmm`
 
-To fit the MCMCglmm model we first we need to set up a precision matrix for the phylogenetic random effect which is required by MCMCglmm. We use the `inverseA` function from the `ape` package to obtain the inverse of the phylogenetic covariance matrix. The `prior` list specifies the priors for the random effects and residual variance. The `ginverse` argument is used to specify the inverse of the phylogenetic covariance matrix. Then we specify the number of iterations, burn-in, and thinning parameters for the MCMC sampling. Here we increased the number of iterations by 30 times the default value to ensure convergence and stability of the MCMC chains, but this could be further increased. Usually you would want to set these to some reasonably large values.
+To fit the MCMCglmm model we first we need to set up a precision matrix for the phylogenetic random effect, which (which is the inverse of the phylogenetic covariance matrix). We use the `inverseA` function the package to obtain the inverse of the phylogenetic covariance matrix.
+
+These priors specify weakly informative settings: both random effects ($G1$, $G2$) use inverse-Wishart style priors ($V=1$, $\nu=1$, with $\alpha.\mu=0$, $\alpha.V=1000$), while the residual variance ($R$) has an almost flat inverse-Gamma prior ($V=1$, $\nu=0.02$).
+
+The `ginverse` argument is used to specify the inverse of the phylogenetic covariance matrix. Then we specify the number of iterations, burn-in, and thinning parameters for the MCMC sampling. Here we increased the number of iterations by 30 times the default value to ensure convergence and stability of the MCMC chains, but this could be further increased. Usually you would want to set these to some reasonably large values after inspection of model diagnostics, including trace plots and psoterior distributions
 
 ```{r}
 #| cache: true 
 #| label: Simulated MCMCglmm model
 
 # get precision phylo matrix and order rows
-phylo.prec.mat <- inverseA(tree, nodes = "TIPS", scale = TRUE)$Ainv
+phylo.prec.mat <- MCMCglmm::inverseA(tree, nodes = "TIPS", scale = TRUE)$Ainv
 phylo.prec.mat <- phylo.prec.mat[order(as.numeric(rownames(phylo.prec.mat))),
                                  order(as.numeric(rownames(phylo.prec.mat)))]
 
-# set recommended priors with two random effects
+# set priors for two random effects
 prior <- list(G=list(G1=list(V=1,nu=1,alpha.mu=0,alpha.V=1000), 
                      G2=list(V=1,nu=1,alpha.mu=0,alpha.V=1000)),
               R=list(V=1,nu=0.02))
@@ -231,17 +303,41 @@ time.mcmc <- system.time({
 
 ```
 
-Next we check the effective sample size (ESS) and the Heidelberger diagnostic test which checks if the MCMC chains have converged and are stationary. The ESS should be above 400 for both fixed and random effects (Vehtari et al., 2021), and the Heidelberger diagnostic should return `TRUE` for all parameters.
+Next we check the effective sample size (ESS). The ESS should be above 400 for both fixed and random effects and the Rhat value should be below 1.01 (Vehtari et al., 2021).
 
 ```{r}
-# check ESS
+
 min(effective_sample(model_mcmc, effects = "fixed")$ESS)
 min(effective_sample(model_mcmc, effects = "random")$ESS)
 
-# check Heidelberger diagnostic
+
+```
+
+We can also check the Heidelberger diagnostic test which checks if the MCMC chains have converged and are stationary ( we expect to see 'passed' for all parameters). In practice it is important to inspect diagnostic plots of the Markov chains and posterior distributions.
+
+```{r}
 fullchain <- cbind(as.mcmc(model_mcmc$Sol), as.mcmc(model_mcmc$VCV))
 heidel.diag(fullchain)
+```
 
+Obtain the fixed effect estimates with the `tidy` function:
+
+```{r}
+coefs_mcmc <- as.data.frame(tidy(model_mcmc, effects="fixed", conf.int=TRUE))
+coefs_mcmc
+```
+
+Obtain the random effect and residual variance estimates:
+
+```{r}
+# get MCMCglmm random effect estimates (variance scale)
+sigma2_mcmc <- tidy(model_mcmc, effects="ran_pars", conf.int=TRUE)
+sigma2_mcmc <- sigma2_mcmc %>%
+  mutate(model="MCMCglmm",
+         group=str_replace(group,"animal", "phylo")) %>% 
+  dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
+
+sigma2_mcmc
 ```
 
 ### Run model with `brms`
@@ -263,8 +359,7 @@ time.brms <- system.time({
 })
 ```
 
-
-Check that the maximum effective sample size (ESS) of the model is high enough and check the Rhat value is below 1.01 (Vehtari et al. 2021):
+Check that the maximum effective sample size (ESS) of the model is high enough and check the Rhat value is below 1.01 (Vehtari et al. 2021). In practice it is important to inspect diagnostic plots such as trace and posterior distribution plots.
 
 ```{r}
 # check ESS 
@@ -279,24 +374,46 @@ print(bayestestR::diagnostic_posterior(model_brms), digits = 4)
 
 ```
 
+We can also use the diagnostic test from the `bayestestR` package to check the convergence of the MCMC chains.
+
+```{r}
+print(bayestestR::diagnostic_posterior(model_brms),
+digits = 4)
+```
+
+Obtain the fixed effect estimates with `tidy` function:
+
+```{r}
+coefs_brm <- as.data.frame(tidy(model_brms, effects="fixed", conf.int=TRUE))
+coefs_brm
+```
+
+Obtain the random effect and residual variance estimates:
+
+```{r}
+sigma_brms <- tidy(model_brms, effects="ran_pars")
+sigma2_brms <- sigma_brms %>%
+  mutate(model="brms",
+         term=str_replace(term, "sd", "var"),
+         estimate=estimate^2) %>%     ##compute variance estimates
+  dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
+
+sigma_brms
+```
+
 ### Run model with `INLA`
 
-For the `INLA` package we set up the model using the `f()` function to specify the random effects. The `model = "iid"` argument indicates that we want to use an independent and identically distributed (iid) random effect for species, while the `model = "generic0"` argument is used for the phylogenetic random effect. The `Cmatrix` argument is used to specify the phylogenetic correlation matrix. 
-We note that priors can be 
+For the `INLA` package we set up the model using the `f()` function to specify the random effects. The `model = "iid"` argument indicates that we want to use an independent and identically distributed (iid) random effect for species, while the `model = "generic0"` argument is used for the phylogenetic random effect. The `Cmatrix` argument is used to specify the phylogenetic correlation matrix, which should be a precision matrix similar to `MCMCglmm`. We note that priors can be incorporated for parameter using the argument `hyper=`.
 
 ```{r}
 #| cache: true 
 #| label: Simulated INLA model
 
-# set up recommended penalizing complexity priors 
-pcprior = list(prec = list(prior="pc.prec", param = c(20, 0.1)))
-
 time.inla <- system.time({
   model_inla <- inla(yi ~ x + f(species, model = "iid") + 
                        f(phylo, ## this needs to be a numeric to work
                          model = "generic0",
-                         Cmatrix = phylo.prec.mat,
-                         hyper=pcprior),
+                         Cmatrix = phylo.prec.mat),
                      family = "gaussian",
                      data = dat)
 })
@@ -304,9 +421,33 @@ time.inla <- system.time({
 fit_inla <- summary(model_inla)
 ```
 
-### Extract model estimates
+Obtain the fixed effect estimates:
 
-First we extract the covariate $x$ estimate and confidence interval for each model:
+```{r}
+coefs_inla <- as.data.frame(fit_inla$fixed)
+coefs_inla
+```
+
+Obtain the random effect variance estimates. Note that `INLA` provides the **inverse of the variance** (precision) in their output.
+
+```{r}
+re_inla <- 1/fit_inla$hyperpar
+sigma2_inla <- data.frame(
+  model = "INLA",
+  group = c( "Residual", "species", "phylo"),
+  term = "var",
+  estimate = re_inla$mean,
+  std.error = fit_inla$hyperpar$sd,
+  conf.low = re_inla$`0.025quant`,
+  conf.high = re_inla$`0.975quant`
+)
+
+sigma2_inla
+```
+
+### Model estimates
+
+Summary of model runtime, covariate $x$ estimate and it's confidence interval for each model:
 
 ```{r}
 #| cache: true
@@ -314,7 +455,6 @@ First we extract the covariate $x$ estimate and confidence interval for each mod
 #| echo: true
 #| label: Simulated model fixed effect estimates
 
-## Format run time for each model ---------
 time.phyr <- as.numeric(time.phyr[3])
 time.glmmTMB <- as.numeric(time.glmmTMB[3])
 time.brms <- as.numeric(time.brms[3])
@@ -322,27 +462,7 @@ time.mcmc <- as.numeric(time.mcmc[3])
 time.inla <- as.numeric(time.inla[3])
 
 
-## Fixed effect estimates -------
-
-# phyr
-coefs_phyr <- as.data.frame(fixef(model_phyr))
-coefs_phyr$conf.low[2] <- coefs_phyr$Value[2] - coefs_phyr$Std.Error[2]*1.96
-coefs_phyr$conf.high[2] <- coefs_phyr$Value[2] + coefs_phyr$Std.Error[2]*1.96
-
-# glmmTMB
-coefs_tmb <- as.data.frame(confint(model_glmmTMB, parm="beta_"))
-
-# brms
-coefs_brm <- as.data.frame(tidy(model_brms, effects="fixed", conf.int=TRUE))
-
-# MCMCglmm 
-coefs_mcmc <- as.data.frame(tidy(model_mcmc, effects="fixed", conf.int=TRUE))
-
-# INLA
-coefs_inla <- as.data.frame(fit_inla$fixed)
-
-
-## Combine fixed effect results -----------------
+# combine fixed effect results 
 res_fixed <- data.frame(
   model = c("phyr", "glmmTMB", "brms", "MCMCglmm", "INLA"),
   species_size = k.species,
@@ -368,8 +488,6 @@ res_fixed <- data.frame(
   stringsAsFactors = FALSE
 )
     
-
-## Show table of results of runtime and fixed effects ------
 kable(res_fixed, 
   caption = "Runtime and fixed effect estimates of the simulated model",
   col.names = c("Model", "Species size", "Sample size", "Run time (s)", "b0", "b1", "Estimate (b1)", "CI low (b1)", "CI high (b1)"),
@@ -379,7 +497,7 @@ kable(res_fixed,
 
 ```
 
-Extract the variance component estimates for each model and compare:
+Summary of variance component estimates for each model:
 
 ```{r}
 #| cache: true
@@ -387,95 +505,7 @@ Extract the variance component estimates for each model and compare:
 #| echo: true
 #| label: Simulated model random effect estimates
 
-
-#### Random effect estimates -------
-  
-# get phyr random effect variance estimates 
-var_re_phyr <- c(as.numeric(model_phyr$ss[2])^2, #phylogenetic 
-                 as.numeric(model_phyr$ss[1])^2, #non-phylogenetic 
-                 as.numeric(model_phyr$ss[3])^2) #residual 
-# combine into dataframe
-sigma2_phyr <- data.frame(
-  model = "phyr",
-  group = c("phylo", "species", "Residual"),
-  term = "var",
-  estimate = var_re_phyr,
-  std.error = NA,
-  conf.low = NA, 
-  conf.high = NA 
-)
-
-
-# get glmmTMB random effect variance estimates (by default it is on the standard deviation scale)
-re_tmb <- as.data.frame(confint(model_glmmTMB, parm="theta_"))
-species_tmb <- re_tmb[1, ]
-phylo_tmb <- re_tmb[2, ]
-# combine into dataframe
-sigma2_tmb <- data.frame(
-  model = "glmmTMB",
-  group = c("phylo", "species", "Residual"),
-  term = "var",
-  estimate = c(phylo_tmb$Estimate^2,   #phylo variance estimates
-               species_tmb$Estimate^2, #non-phylo variance estimates
-               sigma(model_glmmTMB)^2),
-  std.error = NA, #
-  conf.low = c(phylo_tmb$`2.5 %`, species_tmb$`2.5 %`, NA), # Replace with the residual var CI if available
-  conf.high = c(phylo_tmb$`97.5 %`, species_tmb$`97.5 %`, NA) # Replace with the residual var CI if available
-)
-
-
-# Compute variance, SE (delta method), and CI on variance scale)
-var_est <- re_tmb$Estimate^2
-var_se <- 2 * re_tmb$Estimate * (re_tmb$`97.5 %` - re_tmb$`2.5 %`) / (2 * 1.96)
-var_ci_low <- re_tmb$`2.5 %`^2
-var_ci_high <- re_tmb$`97.5 %`^2
-
-# Residual variance
-resid_var <- sigma(model_glmmTMB)^2
-
-# Combine results
-sigma2_tmb <- data.frame(
-  model = "glmmTMB",
-  group = c("phylo", "species", "Residual"),
-  term = "var",
-  estimate = c(var_est, resid_var),
-  std.error = c(var_se, NA),
-  conf.low = c(var_ci_low, NA),
-  conf.high = c(var_ci_high, NA))
-
-
-
-# get brms random effect variance estimates (standard deviation scale)
-sigma_brms <- tidy(model_brms, effects="ran_pars")
-sigma2_brms <- sigma_brms %>%
-  mutate(model="brms",
-         term=str_replace(term, "sd", "var"),
-         estimate=estimate^2) %>%     ##compute variance estimates
-  dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
-
-
-# get MCMCglmm random effect estimates (variance scale)
-sigma2_mcmc <- tidy(model_mcmc, effects="ran_pars", conf.int=TRUE)
-sigma2_mcmc <- sigma2_mcmc %>%
-  mutate(model="MCMCglmm",
-         group=str_replace(group,"animal", "phylo")) %>% 
-  dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
-
-
-# get INLA random effect estimates (precision scale i.e. inverse variance)
-re_inla <- 1/fit_inla$hyperpar
-sigma2_inla <- data.frame(
-  model = "INLA",
-  group = c( "Residual", "species", "phylo"),
-  term = "var",
-  estimate = re_inla$mean,
-  std.error = fit_inla$hyperpar$sd,
-  conf.low = re_inla$`0.025quant`,
-  conf.high = re_inla$`0.975quant`
-)
-
-
-# merge fixed results together
+# combine results together
 s2 <- as.data.frame(rbind(sigma2_phyr,
                           sigma2_tmb,
                           sigma2_brms,
@@ -486,11 +516,8 @@ s2 <- as.data.frame(rbind(sigma2_phyr,
 s2_phylo <- s2 %>% filter(group=="phylo")
 s2_sp <- s2 %>% filter(group=="species")
 s2_res <- s2 %>% filter(group=="Residual")
-    
 
 
-
-## Combine random effect var estimates results -----------------
 res_rand <- data.frame(
   model = c("phyr", "glmmTMB", "brms", "MCMCglmm", "INLA"),
   species_size = k.species,
@@ -502,8 +529,6 @@ res_rand <- data.frame(
   stringsAsFactors = FALSE
 )
     
-
-## Show table of results of runtime and random variance ------
 kable(res_rand, 
   caption = "Runtime and random component variance estimates of the simulated model",
   col.names = c("Model", "Species size", "Sample size", "Run time (s)", "Phylo variance est.", "Non-phylo variance est.", "Residual variance est."),
@@ -511,11 +536,7 @@ kable(res_rand,
   format = "html"
 )
 
-    
 ```
-
-
-
 
 # Bayesian MCMC model runtime
 
@@ -682,16 +703,23 @@ runtime_2_run <- benchmark(
 Summary table of runtimes for compilation and sampling:
 
 ```{r}
+
+compil.perc.1 <- round(runtime_1_pre$elapsed / (runtime_1_pre$elapsed+runtime_1_run$elapsed) * 100, 1)
+compil.perc.2 <- round(runtime_2_pre$elapsed / (runtime_2_pre$elapsed+runtime_2_run$elapsed) * 100, 1)
+sampl.perc.1 <- round(runtime_1_run$elapsed / (runtime_1_pre$elapsed+runtime_1_run$elapsed) * 100, 1)
+sampl.perc.2 <- round(runtime_2_run$elapsed / (runtime_2_pre$elapsed+runtime_2_run$elapsed) * 100, 1)
+
 time.summary <- data.frame(
   model = c("MCMCglmm", "brms"),
-  compil.time = c(runtime_1_pre$elapsed, runtime_2_pre$elapsed),
-  sampling.time = c(runtime_1_run$elapsed - runtime_1_pre$elapsed, runtime_2_run$elapsed - runtime_2_pre$elapsed)
+  compilation.time = c(runtime_1_pre$elapsed, runtime_2_pre$elapsed),
+  perc = c(compil.perc.1, compil.perc.2), 
+  sampling.time = c(runtime_1_run$elapsed - runtime_1_pre$elapsed, runtime_2_run$elapsed - runtime_2_pre$elapsed),
+  perc = c(sampl.perc.1, sampl.perc.2)
 )
 
 kable(time.summary)
 
 ```
-
 
 # Case studies
 
@@ -701,15 +729,13 @@ The following case studies illustrate how phylogenetic mixed models can be appli
 
 All models, results, and datasets presented in these case studies are **intended for illustrative purposes only**. They are designed to demonstrate analytical approaches rather than to provide definitive biological insights. No substantive conclusions should be drawn from these analyses.
 
-
 ## Case study 1: Bird color evolution
 
 Birds are a valuable system for studying ecological and evolutionary processes because their diversity in form, behaviour, and coloration is well documented across many species and habitats. Variation in plumage colour, in particular, can provide insights into mechanisms such as sexual selection, camouflage, and signalling. By examining these traits, researchers can better understand how environmental and evolutionary pressures shape biodiversity.
 
 ![](bird_color.png)
 
-<span style="color:grey; font-size:0.9em;">credits: Andy Chilton, Boris Smokrovic, David Clode, Jaime Spaniol, Joshua J. Cotte, Vincent Van Zalinge / unsplash.com.</span>
-
+[credits: Andy Chilton, Boris Smokrovic, David Clode, Jaime Spaniol, Joshua J. Cotte, Vincent Van Zalinge / unsplash.com.]{style="color:grey; font-size:0.9em;"}
 
 ### Data overview
 
@@ -774,7 +800,6 @@ bird_data <- bird_data |>
     ```         
     Basileuterus_rufifrons, Malurus_lamberti, Malurus_splendens
     ```
-
 
 ### Color data set-up
 
@@ -849,8 +874,7 @@ ggplot(spec.des, aes(x = H4)) +
 
 ```
 
-
-The first dataset is the shape descriptors dataset, which we will use to model the continuous trait (brightness). 
+The first dataset is the shape descriptors dataset, which we will use to model the continuous trait (brightness).
 
 ```{r}
 #| eval: true
@@ -870,11 +894,9 @@ write.csv(spec.dat, file="data/spec_data_for_model.csv")
 
 ```
 
-
 #### Obtain carotenoid datasets: binary and ordinal traits
 
 We will use the carotenoid dataset to model the presence/absence of carotenoid coloration in birds. This dataset is based on the spectral reflectance data and the spectral shape descriptors.
-
 
 Let's set up the dataset for modelling a binary trait (absence/presence of carotenoid color):
 
@@ -945,9 +967,7 @@ ggplot(carot.dat.all, aes(h, C)) +
 
 ```
 
-
 Let's save the dataset for modelling later on:
-
 
 ```{r}
 carot.dat <- carot.dat.all
@@ -967,8 +987,6 @@ carot.ordinal <- carot.dat.all |>
 write.csv(carot.ordinal, file="data/ordinal_data_for_model.csv", row.names = FALSE)
 
 ```
-
-
 
 ### Phylogenetic correlation matrix set-up
 
@@ -994,7 +1012,6 @@ dev.off()
 
 ```
 
-
 Set up correlation matrix for glmmTMB model and check it corresponds to the species labels in the data:
 
 ```{r}
@@ -1013,7 +1030,6 @@ saveRDS(phylo.mat, file = "data/phylo_matrix.rds")
 # head(table(spec.dat$species))
 
 ```
-
 
 ### Model 1. Continuous trait
 
@@ -1034,27 +1050,32 @@ spec.dat$g <- 1
 
 ##### Modelling total brightness (B1)
 
-The brightness trait is right-skewed (as shown above), which is consistent with multiplicative evolutionary change. To identify an appropriate sampling distribution, we will fit four models with an identical linear predictor and random effects structure: 
+The brightness trait is right-skewed (as shown above), which is consistent with multiplicative evolutionary change. To identify an appropriate sampling distribution, we will fit four models with an identical linear predictor and random effects structure:
 
-1. Gaussian to model $\log(B1)$  
-2. Gamma with a log link to model $B1$  
+1.  Gaussian to model $\log(B1)$\
+2.  Gamma with a log link to model $B1$
 
 For each model we will examine simulated standardised residuals using \texttt{DHARMa} to assess nonlinearity and heteroscedasticity. If two or more models perform similarly, we will prefer the model with clearer interpretation on the original scale.
 
 <!-- # Little checks --------- -->
+
 <!-- library(fitdistrplus) -->
+
 <!-- descdist(spec.dat$B1, discrete=FALSE) -->
+
 <!-- gamma_dist <- fitdist(spec.dat$B1, "gamma") -->
+
 <!-- plot(gamma_dist) -->
+
 <!-- norm_dist <- fitdist(log(spec.dat$B1), "norm") -->
+
 <!-- plot(norm_dist) -->
+
 <!-- lnorm_dist <- fitdist(spec.dat$B1, "lnorm") -->
+
 <!-- plot(lnorm_dist) -->
 
 ```{r}
-#| output: true
-#| warnings: true
-#| eval: true
 #| cache: true 
 
 # Fit models --------------
@@ -1087,10 +1108,12 @@ b1_output
 ```
 
 <!-- # Lognormal not working get an error that the link function is not supported? -->
-<!-- t_lnorm <- system.time( -->
-<!--    modb1_lnorm <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), family = lognormal(link = "log"), data = spec.dat) -->
-<!-- ) -->
 
+<!-- t_lnorm <- system.time( -->
+
+<!--    modb1_lnorm <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), family = lognormal(link = "log"), data = spec.dat) -->
+
+<!-- ) -->
 
 ##### Model diagnostics
 
@@ -1102,7 +1125,6 @@ res_gauss <- DHARMa::simulateResiduals(fittedModel = m1)
 plot(res_gauss)
 ```
 
-
 The model checks assuming Gamma distribution and log link function:
 
 ```{r}
@@ -1111,9 +1133,7 @@ res_gamma <- DHARMa::simulateResiduals(fittedModel = m2)
 plot(res_gamma)
 ```
 
-
-We found that the Gamma distribution shows improve model fit as the residual plots 
-
+We found that the Gamma distribution shows improve model fit as the residual plots
 
 ##### Model estimates
 
@@ -1135,7 +1155,6 @@ np.signal <- 1-p.signal
 np.signal
 
 ```
-
 
 On the log mean scale of the Gamma model, the phylogenetic species effect explained 84.2% of the total species level random effect variance i.e. this represents the degree of phylogenetic signal in the overall variance sourced from species. The non-phylogenetic effect explained 15.8% of the total species level random effect variance.
 
@@ -1159,9 +1178,7 @@ data.frame(
 
 ```
 
-
 To assess differences in total brightness between sexes for each body region, we compute marginal means from the fitted model and perform pairwise comparisons between females and males. The resulting ratios (female/male) and their confidence intervals are then plotted to visualise the magnitude and direction of differences across body regions.
-
 
 ```{r}
 #| output: true
@@ -1196,16 +1213,13 @@ Ratios $>1$ indicate greater brightness in females, while ratios $<1$ indicate g
 
 ### Model 2. Binary trait
 
-Binary colour traits, such as the presence of carotenoid colours, may be associated with distinct evolutionary and ecological drivers. 
+Binary colour traits, such as the presence of carotenoid colours, may be associated with distinct evolutionary and ecological drivers.
 
-Here we want to model the absence or presence of carotenoid across all body regions accounting for sex and including species- and phylogeny-level random effects. We will use the carotenoid dataset which we obtained earlier. 
+Here we want to model the absence or presence of carotenoid across all body regions accounting for sex and including species- and phylogeny-level random effects. We will use the carotenoid dataset which we obtained earlier.
 
 ##### Modelling carotenoid presence
 
-
-We will fit two models:
--   Binomial model with a logit link function
--   Beta binomial model with a logit link function
+We will fit two models: - Binomial model with a logit link function - Beta binomial model with a logit link function
 
 ```{r}
 #| cache: true
@@ -1242,8 +1256,6 @@ carotmod_output
 
 ```
 
-
-
 ##### Model diagnostics
 
 Let's check residual plots with the DHARMa packages. First, let's get the residual plots for the binomial model:
@@ -1255,7 +1267,6 @@ plot(res_binom)
 
 ```
 
-
 Now the model checks assuming zero inflated binomial distribution and log link function:
 
 ```{r}
@@ -1265,9 +1276,7 @@ plot(res_bbinom)
 
 ```
 
-
 We found that the binomial model has improved model fit in AIC and in the residual plots.
-
 
 ##### Model estimates
 
@@ -1285,7 +1294,6 @@ p.signal <- sigma2_p / (sigma2_p + sigma2_s)
 p.signal
 
 ```
-
 
 Get model estimated marginals means on the response scale:
 
@@ -1320,16 +1328,11 @@ sex_prob_df |>
 
 ```
 
+### Model 3. Ordinal trait
 
-
-
-### Model 3. Ordinal trait 
-
-The ordinal trait is the percentage of body region with carotenoid presence. We will fit a beta-binomial and  model to this trait, which is suitable for modeling proportions.
-
+The ordinal trait is the percentage of body region with carotenoid presence. We will fit a beta-binomial and model to this trait, which is suitable for modeling proportions.
 
 ##### Modelling carotenoid proportion per body region
-
 
 ```{r}
 #| cache: true 
@@ -1355,23 +1358,29 @@ data.frame(
 
 ```
 
-
-
 <!-- time_norm <- system.time( -->
-<!--   m6 <- glmmTMB(prop_carotenoid ~ sex + (1|species) + propto(0 + species|g,phylo.mat), -->
-<!--                   family = gaussian(), -->
-<!--                   data = ord.dat) -->
-<!-- ) -->
 
+<!--   m6 <- glmmTMB(prop_carotenoid ~ sex + (1|species) + propto(0 + species|g,phylo.mat), -->
+
+<!--                   family = gaussian(), -->
+
+<!--                   data = ord.dat) -->
+
+<!-- ) -->
 
 <!-- # output -->
-<!-- data.frame( -->
-<!--   model = c("Ordinal beta", "gaussian"), -->
-<!--   convergence = c(m5$sdr$pdHess, m6$sdr$pdHess), -->
-<!--   runtime = c(time_ord[["elapsed"]], time_norm[["elapsed"]]), -->
-<!--   AIC = c(AIC(m5), AIC(m6)) -->
-<!-- ) -->
 
+<!-- data.frame( -->
+
+<!--   model = c("Ordinal beta", "gaussian"), -->
+
+<!--   convergence = c(m5$sdr$pdHess, m6$sdr$pdHess), -->
+
+<!--   runtime = c(time_ord[["elapsed"]], time_norm[["elapsed"]]), -->
+
+<!--   AIC = c(AIC(m5), AIC(m6)) -->
+
+<!-- ) -->
 
 ##### Model diagnostics
 
@@ -1385,8 +1394,8 @@ plot(res_ord)
 ```
 
 <!-- res_norm <- DHARMa::simulateResiduals(fittedModel = m6) -->
-<!-- plot(res_norm) -->
 
+<!-- plot(res_norm) -->
 
 ##### Model estimates
 
@@ -1406,9 +1415,7 @@ p.signal.m5
 
 ```
 
-
 Now look at the difference in the proportion of carotenoid colour between females and males from the ordinal beta model (m5), and plot the model-based estimate with its 95% confidence interval on the response scale.
-
 
 ```{r}
 
@@ -1425,16 +1432,11 @@ sex_OR <- as.data.frame(m5_sex_OR) |>
 sex_OR
 ```
 
-
-
 ## Case study 2: Evolution of plant hydraulic traits (TBD)
 
-We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using the phylogenetic generalized linear mixed models (PGLMMs) framework. The original study used a Bayesian MCMC approach to fit the models with `MCMCglmm` package. Here we will use the `glmmTMB` packages to fit the models with different sampling distributions and compare with `MCMCglmm`. Again all results are for illustrative purpose only and we do not intend to infer any biological or ecological conclusions from our results. 
+We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using phylogenetic generalized linear mixed models (PGLMMs). The original study used a Bayesian MCMC approach to fit the models with the `MCMCglmm` package. Here we will use the `glmmTMB` package to fit the models with different sampling distributions and compare with `MCMCglmm`. Again all results are for illustrative purpose only and we do not intend to infer any biological or ecological conclusions from the following results.
 
-
-![](plant_trait.jpeg)
-<span style="color:grey; font-size:0.9em;">credits: Chanya_B / stock.adobe.com</span>
-
+![](plant_trait.jpeg) [credits: Chanya_B / stock.adobe.com]{style="color:grey; font-size:0.9em;"}
 
 ### Data overview
 
@@ -1446,6 +1448,9 @@ hydra.dat <- read_csv("data/HydraEvol2020.csv")
 hist(hydra.dat$Ks, breaks = 50, main = "Distribution of Ks", xlab = "Ks")
 hist(hydra.dat$P50, breaks = 50, main = "Distribution of P50", xlab = "P50")
 
+# Genus random effect column
+hydra.dat$genus.Rand <- hydra.dat$genus
+hydra.dat$animal <- hydra.dat$genus
 
 ```
 
@@ -1458,25 +1463,51 @@ plant.tree <- ape::read.tree("data/genus-level_phylogeny.tre")
 # plot tree
 plotTree(plant.tree, ftype="i", fsize=0.4, lwd=1, type="fan")
 
+# check tree
+
 ```
 
-
-
-### 1. Model for Ks
+### 1. Model for kS
 
 Plant species with high saturated hydraulic conductivity (kS) are able to transport water through their xylem more efficiently, and are therefore characterised as highly efficient in water transport.
 
-First let's set up the models for glmmTMB:
-- Try gamma model
-- Log(response) gaussian
+First let's set up the models for glmmTMB: - Try gamma model - Log(response) gaussian
 
 ```{r}
-
+#| eval: FALSE
+#| echo: FALSE
+#| cache: true 
 # log_negP50 ~ animal + genus.Rand
+
+# Fit models --------------
+
+# normal
+time_norm <- system.time(
+  m1 <- glmmTMB(log(Ks) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
+                      family = gaussian(),
+                      data = hydra.dat) # don't use REML (to get AIC)
+  )
+
+# Gamma distribution
+time_gamma <- system.time(
+  m2 <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
+                      family = Gamma(link = "log"),
+                      data = spec.dat)
+)
+
+# Get model info  ---------------------------
+# check whether model has postive definite hessian
+
+b1_output <- data.frame(
+  model = c("Gaussian (log)", "Gamma"),
+  convergence = c(m1$sdr$pdHess, m2$sdr$pdHess),
+  runtime = c(time_norm[["elapsed"]], time_gamma[["elapsed"]])
+)
+
+b1_output
 
 
 ```
-
 
 Same models with MCMCglmm
 
@@ -1485,10 +1516,6 @@ Same models with MCMCglmm
 ```
 
 #### Diagnostic plots
-
-
-
-
 
 #### Results
 
@@ -1504,24 +1531,17 @@ Get phylogenetic signal from glmmTMB model for both traits
 
 ```
 
-
-
-
 ### 2. Model for P50
 
 P50 represents the level of water stress at which a tree experiences a 50% loss of hydraulic conductivity. More negative P50 values indicate that trees can withstand greater hydraulic stress before suffering hydraulic damage, so communities with lower P50s are considered more resilient to increasing water stress (Trugman et al., 2020).
 
-
-First let's set up the models for glmmTMB:
-- Try gamma model
-- Log(response) gaussian
+First let's set up the models for glmmTMB: - Try gamma model - Log(response) gaussian
 
 ```{r}
 # log_negP50 ~ animal + genus.Rand
 
 
 ```
-
 
 Same models with MCMCglmm
 
@@ -1545,24 +1565,19 @@ Get phylogenetic signal from glmmTMB model for both traits
 
 ```
 
-
-
-
-
 # References
 
 Brooks, M. E., Kristensen, K., van Benthem, K. J., Magnusson, A., Berg, C. W., Nielsen, A., Skaug, H. J.,Machler, M., & Bolker, B. M. (2017). glmmTMB balances speed and flexibility among packages for zero-inflated generalized linear mixed modeling. R Journal, 9 (2), 378–400. https://doi.org/10.32614/RJ-2017-066
 
-Peter O. Dunn et al. ,Natural and sexual selection act on different axes of variation in avian plumage color.Sci. Adv.1,e1400155(2015).DOI:10.1126/sciadv.1400155
+Dunn, P. O., Armenta, J. K., & Whittingham, L. A. (2015). Natural and sexual selection act on different axes of variation in avian plumage color. Science Advances, 1(2), e1400155. https://doi.org/10.1126/sciadv.1400155
 
 Hadfield, J. D. (2024, May). MCMCglmm: MCMC Generalised Linear Mixed Models. Retrieved October 7, 2024, from https://cran.r-project.org/web/packages/MCMCglmm/index.html
 
-Montgomerie R. 2006. Analyzing colors. In Hill, G.E, and McGraw, K.J., eds. Bird Coloration. Volume 1 Mechanisms and measurements. Harvard University Press, Cambridge, Massachusetts.
+Hill, G. E., & McGraw, K. J. (2006). Bird Coloration, Volume 2: Function and Evolution. Harvard University Press. https://doi.org/10.2307/j.ctv22jnr8k
 
 Sanchez-Martinez, P., Martinez-Vilalta, J., Dexter, K. G., Segovia, R. A., & Mencuccini, M. (2020). Adaptation and coordinated evolution of plant hydraulic traits. Ecology Letters, 23 (11), 1599–1610. https://doi.org/10.1111/ele.13584
 
 Trugman, A. T., Anderegg, L. D. L., Shaw, J. D., & Anderegg, W. R. L. (2020). Trait velocities reveal that mortality has driven widespread coordinated shifts in forest hydraulic trait composition. Proceedings of the National Academy of Sciences, 117(15), 8532–8538. https://doi.org/10.1073/pnas.1917521117
-
 
 # Session information
 
