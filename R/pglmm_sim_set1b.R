@@ -192,34 +192,6 @@ conv_tmb <- if (!is.null(model_glmmTMB)) model_glmmTMB$sdr$pdHess else FALSE
 
 
 
-### brms model ###
-# brms does not allow for duplicated group-level effects
-res_brms <- run_model_safely({
-  brm(yi ~ x + (1|gr(phylo, cov = phylo.mat)), #phylo.mat is the correlation matrix
-      data = dat,
-      family = gaussian(),
-      chains = 4, # default
-      iter = 20000, # increased default x10
-      cores = 4, # equal to number of chains
-      data2 = list(phylo.mat = phylo.mat))
-})
-
-
-model_brm <- res_brms$value
-model_brm_error <- if (is.null(res_brms$error)) NA else res_brms$error$message
-model_brm_warning <- if (is.null(res_brms$warning)) NA else res_brms$warning$message
-time.brms <- res_brms$rtime
-# make a warning if at least one Rhat value is above 1.01 (Vehtari et al, 2021)
-conv_brms <- if (!is.null(model_brm)) max(rhat(model_brm)) < 1.01 else FALSE
-# store smallest ESS of model
-ess_brms <- if (!is.null(model_brm)) {
-  min(c(
-    effective_sample(model_brm, effects = "fixed")$ESS,
-    effective_sample(model_brm, effects = "random")$ESS
-  ), na.rm = TRUE)
-} else NA
-
-
 
 
 ### MCMCglmm model ###

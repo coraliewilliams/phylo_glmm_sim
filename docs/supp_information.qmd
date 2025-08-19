@@ -3,7 +3,9 @@ title: "Supporting Information for:\n Phylogenetic generalised linear mixed-effe
 author: "Coralie Williams, Maeve McGillycuddy, Szymek M. Drobniak, Ben M. Bolker, David I. Warton, Shinichi Nakagawa"
 date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 
-favicon: favicon.ico
+include-in-header:
+  text: |
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
 
 format:
   html:
@@ -444,6 +446,10 @@ sigma2_inla <- data.frame(
 
 sigma2_inla
 ```
+
+
+**Additional note:** if a model returns extreme or unreasonable variance estimates, it is important to check robustness by refitting the same model with another package. In INLA, centering the random effect estimates (by specifying `const = TRUE` within the random effect term) or trying higher starting values (default is 4, e.g. `hyper = list(prec=list(initial=8))`) to see if the estimates converge to more reasonable values. Random effect variance estimates are often unstable, so they should be interpreted with care.
+
 
 ### Model estimates
 
@@ -1084,7 +1090,7 @@ For each model we will examine simulated standardised residuals using \texttt{DH
 time_norm <- system.time(
   m1 <- glmmTMB(log(B1) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
                       family = gaussian(),
-                      data = spec.dat) # don't use REML (to get AIC)
+                      data = spec.dat) 
   )
 
 # Gamma distribution
@@ -1123,6 +1129,7 @@ Let's check residual plots with the DHARMa packages. First, the log(B1) assuming
 #| cache: true 
 res_gauss <- DHARMa::simulateResiduals(fittedModel = m1)
 plot(res_gauss)
+
 ```
 
 The model checks assuming Gamma distribution and log link function:
@@ -1131,6 +1138,7 @@ The model checks assuming Gamma distribution and log link function:
 #| cache: true 
 res_gamma <- DHARMa::simulateResiduals(fittedModel = m2)
 plot(res_gamma)
+
 ```
 
 We found that the Gamma distribution shows improve model fit as the residual plots
@@ -1446,98 +1454,281 @@ hydra.dat <- read_csv("data/HydraEvol2020.csv")
 
 # Have a look at distribution of traits
 hist(hydra.dat$Ks, breaks = 50, main = "Distribution of Ks", xlab = "Ks")
+boxplot(hydra.dat$Ks ~ hydra.dat$group, main = "Boxplot of Ks by group", xlab = "Group", ylab = "Ks")
 hist(hydra.dat$P50, breaks = 50, main = "Distribution of P50", xlab = "P50")
-
-# Genus random effect column
-hydra.dat$genus.Rand <- hydra.dat$genus
-hydra.dat$animal <- hydra.dat$genus
+boxplot(hydra.dat$P50 ~ hydra.dat$group, main = "Boxplot of P50 by group", xlab = "Group", ylab = "P50")
 
 ```
 
 ### Phylogenetic tree
 
 ```{r}
-
-# Load bird tree (consensus tree = "combined tree")
+# Load tree 
 plant.tree <- ape::read.tree("data/genus-level_phylogeny.tre")
+
 # plot tree
 plotTree(plant.tree, ftype="i", fsize=0.4, lwd=1, type="fan")
-
-# check tree
+dev.off()
 
 ```
+
+
 
 ### 1. Model for kS
 
 Plant species with high saturated hydraulic conductivity (kS) are able to transport water through their xylem more efficiently, and are therefore characterised as highly efficient in water transport.
 
-First let's set up the models for glmmTMB: - Try gamma model - Log(response) gaussian
+First let's set up the models for glmmTMB: 
+
+-   Log(response) Gaussian.
+
+-   Gamma model.
+
+
+First, let's set up the phylogenetic correlation matrix for the `glmmTMB` model and the inverse matrix for `MCMCglmm`. 
+
+We want to obtain a phylogenetic matrix that match all genera in the Ks dataset.m We will therefore remove all missing entries for the `Ks` trait and prune the tree and the dataset to have the same genera in both. 
 
 ```{r}
-#| eval: FALSE
-#| echo: FALSE
+#| cache: TRUE
+
+# create dat for ks (remove all missing values)
+ks.dat <- subset(hydra.dat, !is.na(Ks))
+
+# get common genus across dataset and tree
+common.genus <- intersect(plant.tree$tip.label, ks.dat$genus)
+
+# Prune dataset
+ks.dat <- ks.dat[ks.dat$genus %in% common.genus, ]
+
+# Prune tree
+plant.tree.pruned <- ape::drop.tip(plant.tree, setdiff(plant.tree$tip.label, common.genus))
+length(plant.tree.pruned$tip.label)
+
+# check whether names match in data and tree
+check <- geiger::name.check(plant.tree.pruned, ks.dat$genus, sort(plant.tree.pruned$tip.label))
+
+# set up phylogenetic correlation matrix
+phylo.mat.p <- vcv(plant.tree.pruned, corr = TRUE) 
+phylo.mat.p <- phylo.mat.p[sort(rownames(phylo.mat.p)), sort(rownames(phylo.mat.p))]
+
+# set up inverse phylogenetic correlation matrix for MCMCglmm
+phylo.inv <- MCMCglmm::inverseA(plant.tree.pruned, nodes = "TIPS")$Ainv
+phylo.inv <- phylo.inv[order((rownames(phylo.inv))), order((rownames(phylo.inv)))]
+
+
+# checks   
+# length(colnames(phylo.mat.p))==length(table(ks.dat$genus))
+# all(head(rownames(phylo.mat.p))==head(colnames(phylo.mat.p)))
+# length(rownames(phylo.inv))==length(table(ks.dat$genus))
+# head(table(ks.dat$genus))
+
+```
+
+
+
+```{r}
 #| cache: true 
-# log_negP50 ~ animal + genus.Rand
+
+# make sure to add grouping factor for glmmTMB
+ks.dat$g <- 1
+ks.dat$genus <- as.factor(ks.dat$genus)
+
 
 # Fit models --------------
 
 # normal
 time_norm <- system.time(
-  m1 <- glmmTMB(log(Ks) ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
+  m6 <- glmmTMB(log(Ks) ~ group + (1|genus) + propto(0 + genus|g, phylo.mat.p),
                       family = gaussian(),
-                      data = hydra.dat) # don't use REML (to get AIC)
+                      REML=TRUE,
+                      data = ks.dat)
   )
 
 # Gamma distribution
 time_gamma <- system.time(
-  m2 <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat),
+  m7 <- glmmTMB(Ks ~ group + (1|genus) + propto(0 + genus|g,phylo.mat.p),
                       family = Gamma(link = "log"),
-                      data = spec.dat)
+                      data = ks.dat)
 )
 
+
+```
+
+Now, we will fit the Gaussian Log(Ks) model with MCMCglmm:
+
+```{r}
+#| eval: FALSE
+#| echo: FALSE
+# set priors
+prior2 <- list(
+  R = list(V = 1, nu = 0.002), 
+  G = list(G1 = list(V = 1, nu = 0.002), 
+           G2 = list(V = 1, nu = 0.002))) # two random effects, phylogeny and genus
+
+# set up random effects for MCMCglmm
+ks.dat$phylo <- ks.dat$genus
+rownames(phylo.inv) <- levels(ks.dat$phylo)
+ks.dat$phylo <- as.character(ks.dat$phylo)
+
+ks.dat$phylo
+
+# normal
+time_mcmc.norm <- system.time(
+  m6.mcmc <- MCMCglmm(log(Ks) ~ group, random = ~genus + phylo,
+                      family = "gaussian",
+                      ginverse = list(phylo = phylo.inv),
+                      prior = prior2,
+                      data = ks.dat,
+                      verbose=FALSE,
+                      nitt=13000,
+                      burnin=3000,
+                      thin=10)
+)
+
+# check convergence
+m6.mcmc.conv <- heidel.diag(m6.mcmc$Sol[,1])$pvalue > 0.05 # check convergence of fixed effect
+
+```
+
+
+```{r}
+#| eval: FALSE
+#| echo: FALSE
 # Get model info  ---------------------------
 # check whether model has postive definite hessian
 
-b1_output <- data.frame(
-  model = c("Gaussian (log)", "Gamma"),
-  convergence = c(m1$sdr$pdHess, m2$sdr$pdHess),
-  runtime = c(time_norm[["elapsed"]], time_gamma[["elapsed"]])
+ks_output <- data.frame(
+  package = c("glmmTMB", "MCMCglmm", "glmmTMB"),
+  model = c("Gaussian (log)", "Gaussian (log)", "Gamma"),
+  convergence = c(m6$sdr$pdHess, m6.mcmc.conv , m7$sdr$pdHess),
+  runtime = c(time_norm[["elapsed"]], time_mcmc.norm, time_gamma[["elapsed"]])
 )
 
-b1_output
-
-
-```
-
-Same models with MCMCglmm
-
-```{r}
+ks_output
 
 ```
+
+
 
 #### Diagnostic plots
 
+
+Let's check residual plots with the DHARMa packages. First, the log(Ks) assuming normal distribution residual checks:
+
+```{r}
+#| cache: true 
+res_norm <- DHARMa::simulateResiduals(fittedModel = m6)
+plot(res_norm)
+
+```
+
+The model checks assuming Gamma distribution and log link function:
+
+```{r}
+#| cache: true 
+res_gamma2 <- DHARMa::simulateResiduals(fittedModel = m7)
+plot(res_gamma2)
+
+```
+
+
+Residual diagnostics are relatively similar.
+
+
 #### Results
 
-Compare model outputs + run time
+Get phylogenetic signal from glmmTMB model: 
 
 ```{r}
+#| output: true
+#| cache: true 
+
+# get random effect component estimates on SD-scale 
+m6_re <- as.data.frame(confint(m6, parm="theta_"))
+sigma2_s <- m6_re$Estimate[1]^2 # non-phylogenetic variance
+sigma2_p <- m6_re$Estimate[2]^2 # phylogenetic variance estimate
+
+p.signal <- sigma2_p / (sigma2_p + sigma2_s)
+p.signal
 
 ```
 
-Get phylogenetic signal from glmmTMB model for both traits
+
+Get model estimated marginals means on the response scale:
 
 ```{r}
+#| eval: FALSE
+#| echo: FALSE
+# Estimated marginal means on the response scale (odds)
+emm_m3 <- emmeans(m3, ~ sex | body_region, type = "response")
+
+# get contrasts (odds ratios)
+m3_sex_prob <- contrast(emm_m3, method = "pairwise", reverse=TRUE) |> 
+  summary(infer = TRUE, type = "response")
+
+# Put into data frame for plotting
+sex_prob_df <- as.data.frame(m3_sex_prob) |>
+  rename(ratio = odds.ratio, lower.CL = asymp.LCL, upper.CL = asymp.UCL)
 
 ```
+
+
+
+
+
+
+
 
 ### 2. Model for P50
 
 P50 represents the level of water stress at which a tree experiences a 50% loss of hydraulic conductivity. More negative P50 values indicate that trees can withstand greater hydraulic stress before suffering hydraulic damage, so communities with lower P50s are considered more resilient to increasing water stress (Trugman et al., 2020).
 
-First let's set up the models for glmmTMB: - Try gamma model - Log(response) gaussian
+First let's set up the models for glmmTMB:
+
+-   Try gamma model 
+
+-   Log(response) gaussian
+
+
+First, le's a phylogenetic matrix that match all genera in the P50 dataset. We will therefore remove all missing entries for the `Ks` trait and prune the tree and the dataset to have the same genera in both. 
 
 ```{r}
+#| cache: TRUE
+
+# create dat for ks (remove all missing values)
+ks.dat <- subset(hydra.dat, !is.na(Ks))
+
+# get common genus across dataset and tree
+common.genus <- intersect(plant.tree$tip.label, ks.dat$genus)
+
+# Prune dataset
+ks.dat <- ks.dat[ks.dat$genus %in% common.genus, ]
+
+# Prune tree
+plant.tree.pruned <- ape::drop.tip(plant.tree, setdiff(plant.tree$tip.label, common.genus))
+
+# check whether names match in data and tree
+check <- geiger::name.check(plant.tree.pruned, ks.dat$genus, sort(plant.tree.pruned$tip.label))
+
+# set up phylogenetic correlation matrix
+phylo.mat.p <- vcv(plant.tree.pruned, corr = TRUE) 
+phylo.mat.p <- phylo.mat.p[sort(rownames(phylo.mat.p)), sort(rownames(phylo.mat.p))]
+
+# set up inverse phylogenetic correlation matrix for MCMCglmm
+phylo.mat.p.inv <- solve(phylo.mat.p)
+
+
+# checks   
+# length(colnames(phylo.mat.p))==length(table(ks.dat$genus))
+# all(head(rownames(phylo.mat.p))==head(colnames(phylo.mat.p)))
+# head(table(ks.dat$genus))
+
+```
+
+
+```{r}
+
 # log_negP50 ~ animal + genus.Rand
 
 

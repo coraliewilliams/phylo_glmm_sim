@@ -3,7 +3,7 @@ rm(list=ls())
 # Load packages -----------------------------------------
 
 library("pacman")
-p_load(parallel, ape, MCMCglmm, brms, phyr, plyr, dplyr, R.utils, glmmTMB, INLA,
+p_load(parallel, ape, MCMCglmm, phyr, plyr, dplyr, R.utils, glmmTMB, INLA,
        broom.mixed, ggstance, MASS, stringr, remotes, bayestestR, performance)
 
 
