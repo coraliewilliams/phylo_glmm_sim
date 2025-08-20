@@ -5,7 +5,7 @@ date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
 
 include-in-header:
   text: |
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="icon" type="image/x-icon" href="robin.png">
 
 format:
   html:
@@ -67,6 +67,9 @@ This webpage is organised in three sections:
 3.  Finally, we presents two case studies illustrating the application of these methods to ecological and evolutionary data, the first on bird color traits and the second on plant traits.
 
 For comments, questions, or if you see an error please contact the corresponding author, Coralie Williams ([coralie.williams\@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or [coraliewilliams\@outlook.com](coraliewilliams@outlook.com)).
+
+
+<a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Bird icon created by Smashicons</a>
 
 # Models
 
@@ -360,6 +363,13 @@ time.brms <- system.time({
                     data2 = list(phylo.mat = phylo.mat))
 })
 ```
+
+Look at the trace plots of the parameters to check for convergence. We expect to see good mixing of the chains and no trends.
+
+```{r}
+plot(model_brms, N = 2, ask = FALSE)
+```
+
 
 Check that the maximum effective sample size (ESS) of the model is high enough and check the Rhat value is below 1.01 (Vehtari et al. 2021). In practice it is important to inspect diagnostic plots such as trace and posterior distribution plots.
 
@@ -1790,3 +1800,5 @@ si$packages <- si$packages
 details(si, summary = 'Current session info', open = FALSE)
 
 ```
+
+

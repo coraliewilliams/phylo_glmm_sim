@@ -228,8 +228,6 @@ ess_mcmc <- if (!is.null(model_mcmc)) {
 # run model (use generic0)
 res_inla <- run_model_safely({
   inla(yi ~ x + 
-         f(species,
-           model = "iid") + 
          f(phylo, ## this needs to be a numeric to work
            model = "generic0",
            Cmatrix = phylo.prec.mat),

@@ -3,7 +3,7 @@ rm(list=ls())
 # Load packages -----------------------------------------
 
 library("pacman")
-p_load(parallel, ape, MCMCglmm, brms, phyr, plyr, dplyr, R.utils, glmmTMB, INLA,
+p_load(parallel, ape, MCMCglmm, plyr, dplyr, R.utils, glmmTMB, INLA,
        broom.mixed, ggstance, MASS, stringr, remotes, bayestestR, performance)
 
 
@@ -155,26 +155,6 @@ save(list = c("dat", "phylo.mat", "phylo.prec.mat"), file = paste0("data/b/simda
 #################
 
 
-### phyr model ###
-
-# pglmm model - (1 | sp__) will construct two random terms, one with phylogenetic covariance 
-# matrix and another with non-phylogenetic (identity) matrix. 
-# --> Phylogenetic correlations can be dropped by removing the __ underscores.
-res_phyr <- run_model_safely({
-  pglmm(yi ~ x + (1|sp__),
-        cov_ranef = list(sp = tree),
-        data = dat,
-        REML = TRUE)
-})
-
-model_phyr <- res_phyr$value
-model_phyr_warning <- if (is.null(res_phyr$warning)) NA else res_phyr$warning$message
-model_phyr_error <- if (is.null(res_phyr$error)) NA else res_phyr$error$message
-time.phyr <- res_phyr$rtime
-conv_phyr <- !is.null(model_phyr)
-
-
-
 
 ### glmmTMB model ###
 # allows for same random effect names for propto
@@ -239,9 +219,7 @@ ess_mcmc <- if (!is.null(model_mcmc)) {
 
 # run model (use generic0)
 res_inla <- run_model_safely({
-  inla(yi ~ x + 
-         f(species,
-           model = "iid") + 
+  inla(yi ~ x +
          f(phylo, ## this needs to be a numeric to work
            model = "generic0",
            Cmatrix = phylo.prec.mat),
@@ -264,24 +242,11 @@ conv_inla <- model_inla$ok
 
 #------------- Fixed effect results: estimate + SE 
 
-# phyr
-coefs_phyr <- if (!is.null(model_phyr)) {
-  cf <- as.data.frame(fixef(model_phyr))
-  cf$conf.low[2] <- cf$Value[2] - cf$Std.Error[2] * 1.96
-  cf$conf.high[2] <- cf$Value[2] + cf$Std.Error[2] * 1.96
-  cf
-} else data.frame(Value = NA, Std.Error = NA, conf.low = NA, conf.high = NA)
-
-
 # glmmTMB
 coefs_tmb <- if (!is.null(model_glmmTMB)) {
   as.data.frame(confint(model_glmmTMB, parm = "beta_"))
 } else data.frame(Estimate = NA, `2.5 %` = NA, `97.5 %` = NA)
 
-# brms
-coefs_brm <- if (!is.null(model_brm)) {
-  as.data.frame(tidy(model_brm, effects = "fixed", conf.int = TRUE))
-} else data.frame(estimate = NA, conf.low = NA, conf.high = NA)
 
 # MCMCglmm 
 coefs_mcmc <- if (!is.null(model_mcmc)) {
@@ -297,25 +262,6 @@ coefs_inla <- if (!is.null(model_inla)) {
 
 
 #---- Random effect variance results: estimate + SE 
-
-
-# get phyr variance estimates (model output is on standard deviation scale)
-sigma2_phyr <- if (!is.null(model_phyr)) {
-  data.frame(
-    model = "phyr",
-    group = c("phylo", "Residual"),
-    term = "var",
-    estimate = c(model_phyr$ss[2]^2, #phylogenetic 
-                 model_phyr$ss[3]^2),#residual 
-    std.error = NA, conf.low = NA, conf.high = NA  ##currently not available to my knowledge, could bootstrap tho..
-  )
-} else data.frame(
-  model = "phyr",
-  group = c("phylo", "Residual"),
-  term = "var",
-  estimate = NA, std.error = NA, conf.low = NA, conf.high = NA
-)
-
 
 
 # get glmmTMB variance estimates (standard deviation scale)
@@ -350,25 +296,6 @@ sigma2_tmb <- if (!is.null(model_glmmTMB)) {
   term = "var",
   estimate = NA, std.error = NA, conf.low = NA, conf.high = NA
 )
-
-
-
-
-
-# get brms random effect variance estimates (standard deviation scale)
-sigma2_brms <- if (!is.null(model_brm)) {
-  tidy(model_brm, effects = "ran_pars") |>
-    mutate(model = "brms",
-           term=str_replace(term, "sd", "var"),
-           estimate = estimate^2) |>  # convert SD to variance
-    dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
-} else data.frame(
-  model = "brms",
-  group = c("phylo", "Residual"),
-  term = "var",
-  estimate = NA, std.error = NA, conf.low = NA, conf.high = NA
-)
-
 
 
 # get MCMCglmm random effect estimates (variance scale)
@@ -409,9 +336,7 @@ sigma2_inla <- if (!is.null(model_inla)) {
 
 
 # merge fixed results together
-s2 <- as.data.frame(bind_rows(sigma2_phyr,
-                              sigma2_tmb, 
-                              sigma2_brms,
+s2 <- as.data.frame(bind_rows(sigma2_tmb, 
                               sigma2_mcmc, 
                               sigma2_inla))
 
@@ -427,33 +352,27 @@ s2_res <- s2 %>% filter(group=="Residual")
 
 # Combine the results for this iteration
 result <- data.frame(
-  model = c("phyr", "glmmTMB", "brms", "MCMCglmm", "INLA"),
-  model_error = c(model_phyr_error, model_glmmTMB_error, model_brm_error, model_mcmc_error, model_inla_error),
-  model_warning = c(model_phyr_warning, model_glmmTMB_warning, model_brm_warning, model_mcmc_warning, model_inla_warning),
-  convergence = c(conv_phyr, conv_tmb, conv_brms, conv_mcmc, conv_inla),
-  ESS = c(NA, NA, ess_brms, ess_mcmc, NA),
-  species_size = rep(k.species, 5),
-  sample_size = rep(n, 5),
-  scenario = rep(scen, 5),
-  seed = rep(seed, 5),
-  b0 = rep(b0, 5),
-  b1 = rep(b1, 5),
-  sigma2.p = rep(sigma2.p, 5),
-  sigma2.e = rep(sigma2.e, 5),
-  run_time = c(time.phyr, time.glmmTMB, time.brms, time.mcmc, time.inla),
-  mu = c(coefs_phyr$Value[2],
-         coefs_tmb$Estimate[2], 
-         coefs_brm$estimate[2], 
+  model = c("glmmTMB", "MCMCglmm", "INLA"),
+  model_error = c(model_glmmTMB_error, model_mcmc_error, model_inla_error),
+  model_warning = c(model_glmmTMB_warning, model_mcmc_warning, model_inla_warning),
+  convergence = c(conv_tmb, conv_mcmc, conv_inla),
+  ESS = c(NA, ess_mcmc, NA),
+  species_size = rep(k.species, 3),
+  sample_size = rep(n, 3),
+  scenario = rep(scen, 3),
+  seed = rep(seed, 3),
+  b0 = rep(b0, 3),
+  b1 = rep(b1, 3),
+  sigma2.p = rep(sigma2.p, 3),
+  sigma2.e = rep(sigma2.e, 3),
+  run_time = c(time.glmmTMB, time.mcmc, time.inla),
+  mu = c(coefs_tmb$Estimate[2], 
          coefs_mcmc$estimate[2], 
          coefs_inla$mean[2]),
-  mu_ci_low = c(coefs_phyr$conf.low[2],
-                coefs_tmb$`2.5 %`[2],
-                coefs_brm$conf.low[2], 
+  mu_ci_low = c(coefs_tmb$`2.5 %`[2],
                 coefs_mcmc$conf.low[2], 
                 coefs_inla$`0.025quant`[2]),
-  mu_ci_high = c(coefs_phyr$conf.high[2],
-                 coefs_tmb$`97.5 %`[2],
-                 coefs_brm$conf.high[2], 
+  mu_ci_high = c(coefs_tmb$`97.5 %`[2],
                  coefs_mcmc$conf.high[2], 
                  coefs_inla$`0.975quant`[2]),
   s2_phylo = s2_phylo$estimate,
