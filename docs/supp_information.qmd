@@ -1,10 +1,10 @@
 ---
 title: "Supporting Information for:\n Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package"
-author: "Coralie Williams, Maeve McGillycuddy, Szymek M. Drobniak, Ben M. Bolker, David I. Warton, Shinichi Nakagawa"
-date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+author: "Coralie Williams, Maeve McGillycuddy, Szymek Drobniak, Ben Bolker, David I. Warton, Shinichi Nakagawa"
 
 include-in-header:
   text: |
+    <link rel="shortcut icon" href="robin.png" />
     <link rel="icon" type="image/x-icon" href="robin.png">
 
 format:
@@ -25,14 +25,11 @@ editor_options:
 ---
 
 <!-- -   make sure to use package name:: as much as possible -->
-
-<!-- -   make diagnostics of models using DHARMA (or glmmTMB diagnostics) -->
-
 <!-- setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs") -->
-
 <!-- page-layout: full -->
+<!-- <img src="robin.png" alt="Robin icon" width="25"> -->
 
-# Overview
+# Overview 
 
 ```{r setup}
 #| output: false
@@ -56,22 +53,30 @@ pacman::p_load(
 options(digits = 4, scipen = 5)
 ```
 
-This webpage provides supporting information for the manuscript "Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package" where we showcase the [*propto*](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html#proportional) (proportional to) covariance structure in the `glmmTMB` R package.
+This webpage provides supporting information for the manuscript “Phylogenetic generalised linear mixed-effects modelling with the glmmTMB R package”, where we showcase the [*propto*](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html#proportional) (proportional-to) covariance structure in the `glmmTMB` R package (McGillycuddy, 2023; Kristensen & McGillycuddy, 2025).
 
 This webpage is organised in three sections:
 
-1.  First, we describe the simulated models and data-generating mechanisms for each of the five evaluated R packages for fitting PGLMMs
+1. First, we describe the simulated models and data-generating mechanisms for each of the five evaluated R packages for fitting PGLMMs (see [Models](#models)).
 
-2.  We then use the simulated data to illustrate compilation and sampling runtimes for the Bayesian MCMC models.
+2. We then use the simulated data to illustrate compilation and sampling runtimes for the Bayesian MCMC models (see [Runtimes](#runtimes)).
 
-3.  Finally, we presents two case studies illustrating the application of these methods to ecological and evolutionary data, the first on bird color traits and the second on plant traits.
-
-For comments, questions, or if you see an error please contact the corresponding author, Coralie Williams ([coralie.williams\@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or [coraliewilliams\@outlook.com](coraliewilliams@outlook.com)).
+3. Finally, we present two case studies that apply these methods to ecological and evolutionary data, the first on bird colour traits and the second on plant traits (see [Case studies](#case-studies)).
 
 
-<a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Bird icon created by Smashicons</a>
+For questions or error reports, contact Coralie Williams: 
+[coralie.williams@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or 
+[coraliewilliams@outlook.com](mailto:coraliewilliams@outlook.com)
 
-# Models
+
+> **Note**  
+> This site will be updated regularly, and there might still be small mistakes.
+
+
+**Last updated on:** `r format(Sys.time(), '%d %B %Y')`
+
+
+# Models {#models}
 
 We demonstrate and explain how to fit phylogenetic generalized mixed models (PGLMM) using five different packages which we used in our simulation study: `glmmTMB`, `phyr`, `MCMCglmm`, `brms`, and `INLA`. The models are fitted to one simulated dataset using a randomly generated phylogenetic tree and a set of model parameters. We compare the performance of these packages in terms of runtime, accuracy, and bias of the fixed effect mean and random effect variance estimates.
 
@@ -93,7 +98,7 @@ Where:
 -   $p_i \sim \mathcal{N}(0, \sigma^2_{\text{p}} \mathbf{A})$: species-level effect (phylogenetic), where $\mathbf{A}$ is the phylogenetic correlation matrix
 -   $\varepsilon_{ij} \sim \mathcal{N}(0, \sigma^2_{e})$: residual error
 
-### Simulate data
+## Simulate data
 
 First we specify the parameter values for one simulation run. We assume the following:
 
@@ -152,6 +157,8 @@ dat$species <- factor(dat$species) # format species variable for models
 dat$sp <- dat$species # create sp variable (for phyr)
 dat$g <- 1 # add variable g constant (for glmmTMB)
 
+save(dat, tree, phylo.mat, file = "simulated_data.RData")
+
 ```
 
 View first five rows of the simulated dataset:
@@ -159,6 +166,8 @@ View first five rows of the simulated dataset:
 ```{r}
 head(dat)
 ```
+
+## Run models
 
 ### Run model with `glmmTMB`
 
@@ -221,6 +230,8 @@ sigma2_tmb <- data.frame(
 sigma2_tmb
 ```
 
+
+
 ### Run model with `phyr`
 
 To fit the model using `phyr` package we use the `cov_ranef` argument to specify the phylogenetic tree directly. The random effect term `(1|sp__)` indicates that we want to include both phylogenetic and non-phylogenetic random effects. The underscores `__` indicate that we want to include phylogenetic correlations in the model.
@@ -276,7 +287,7 @@ To fit the MCMCglmm model we first we need to set up a precision matrix for the 
 
 These priors specify weakly informative settings: both random effects ($G1$, $G2$) use inverse-Wishart style priors ($V=1$, $\nu=1$, with $\alpha.\mu=0$, $\alpha.V=1000$), while the residual variance ($R$) has an almost flat inverse-Gamma prior ($V=1$, $\nu=0.02$).
 
-The `ginverse` argument is used to specify the inverse of the phylogenetic covariance matrix. Then we specify the number of iterations, burn-in, and thinning parameters for the MCMC sampling. Here we increased the number of iterations by 30 times the default value to ensure convergence and stability of the MCMC chains, but this could be further increased. Usually you would want to set these to some reasonably large values after inspection of model diagnostics, including trace plots and psoterior distributions
+The `ginverse` argument is used to specify the inverse of the phylogenetic covariance matrix. Then we specify the number of iterations, burn-in, and thinning parameters for the MCMC sampling. Here we increased the number of iterations by 30 times the default value to ensure convergence and stability of the MCMC chains, but this could be further increased. Usually you would want to set these to some reasonably large values after inspection of diagnostic plots (i.e. trace plots and posterior distributions).
 
 ```{r}
 #| cache: true 
@@ -308,13 +319,19 @@ time.mcmc <- system.time({
 
 ```
 
+Plot the trace plots of the parameters to check for convergence. We expect to see good mixing of the chains and no trends.
+
+```{r}
+plot(model_mcmc$Sol, ask = FALSE)
+```
+
+
 Next we check the effective sample size (ESS). The ESS should be above 400 for both fixed and random effects and the Rhat value should be below 1.01 (Vehtari et al., 2021).
 
 ```{r}
 
 min(effective_sample(model_mcmc, effects = "fixed")$ESS)
 min(effective_sample(model_mcmc, effects = "random")$ESS)
-
 
 ```
 
@@ -371,7 +388,7 @@ plot(model_brms, N = 2, ask = FALSE)
 ```
 
 
-Check that the maximum effective sample size (ESS) of the model is high enough and check the Rhat value is below 1.01 (Vehtari et al. 2021). In practice it is important to inspect diagnostic plots such as trace and posterior distribution plots.
+Check that the maximum effective sample size (ESS) of the model is high enough and check the Rhat value is below 1.01 (Vehtari et al. 2021).
 
 ```{r}
 # check ESS 
@@ -554,7 +571,7 @@ kable(res_rand,
 
 ```
 
-# Bayesian MCMC model runtime
+# Bayesian MCMC model runtime {#runtimes}
 
 Here we provide a breakdown of the compilation and sampling runtimes for the Bayesian MCMC models using the above simulated repeated measures dataset. The runtimes are provided for each model fitted using the `MCMCglmm` and `brms` packages. Note: the compilation time is the time taken to compile the model, while the sampling time is the time taken to sample from the posterior distribution of the model parameters.
 
@@ -737,7 +754,7 @@ kable(time.summary)
 
 ```
 
-# Case studies
+# Case studies {#case-studies}
 
 ## Background
 
@@ -1074,22 +1091,15 @@ The brightness trait is right-skewed (as shown above), which is consistent with 
 For each model we will examine simulated standardised residuals using \texttt{DHARMa} to assess nonlinearity and heteroscedasticity. If two or more models perform similarly, we will prefer the model with clearer interpretation on the original scale.
 
 <!-- # Little checks --------- -->
-
 <!-- library(fitdistrplus) -->
-
 <!-- descdist(spec.dat$B1, discrete=FALSE) -->
-
 <!-- gamma_dist <- fitdist(spec.dat$B1, "gamma") -->
-
 <!-- plot(gamma_dist) -->
-
 <!-- norm_dist <- fitdist(log(spec.dat$B1), "norm") -->
-
 <!-- plot(norm_dist) -->
-
 <!-- lnorm_dist <- fitdist(spec.dat$B1, "lnorm") -->
-
 <!-- plot(lnorm_dist) -->
+
 
 ```{r}
 #| cache: true 
@@ -1124,12 +1134,28 @@ b1_output
 ```
 
 <!-- # Lognormal not working get an error that the link function is not supported? -->
-
 <!-- t_lnorm <- system.time( -->
-
 <!--    modb1_lnorm <- glmmTMB(B1 ~ body_region * sex + (1|species) + propto(0 + species|g,phylo.mat), family = lognormal(link = "log"), data = spec.dat) -->
-
 <!-- ) -->
+
+
+```{r}
+#| eval: false
+#| echo: false
+
+table(spec.dat$sex)
+spec.dat$sex.c <- ifelse(spec.dat$sex=="female", -0.5, 0.5)
+table(spec.dat$sex.c)
+
+# try out fitting random slope
+m <- glmmTMB(log(B1) ~ sex + (1|species) + propto(0 + sex:species|g,phylo.mat) + propto(0 + species|g,phylo.mat),
+                      family = gaussian(),
+                      data = spec.dat) 
+
+m_re <- as.data.frame(confint(m, parm="theta_"))
+
+```
+
 
 ##### Model diagnostics
 
@@ -1151,7 +1177,7 @@ plot(res_gamma)
 
 ```
 
-We found that the Gamma distribution shows improve model fit as the residual plots
+We found that the Gamma distribution shows improve model fit in the residual plots.
 
 ##### Model estimates
 
@@ -1208,6 +1234,8 @@ emm_b1 <- emmeans(m2, ~ sex | body_region, type = "response")
 # get contrasts (ratios) back transformed on response scale with CI
 b1_sex_diff <- contrast(emm_b1, method = "pairwise", reverse=TRUE) |> 
   summary(infer = TRUE, type = "response")
+
+b1_sex_diff
 
 
 ## plot pairwise differences between female and male total brightness
@@ -1327,6 +1355,8 @@ m3_sex_prob <- contrast(emm_m3, method = "pairwise", reverse=TRUE) |>
 # Put into data frame for plotting
 sex_prob_df <- as.data.frame(m3_sex_prob) |>
   rename(ratio = odds.ratio, lower.CL = asymp.LCL, upper.CL = asymp.UCL)
+sex_prob_df 
+
 
 # Plot
 sex_prob_df |>
@@ -1377,27 +1407,16 @@ data.frame(
 ```
 
 <!-- time_norm <- system.time( -->
-
 <!--   m6 <- glmmTMB(prop_carotenoid ~ sex + (1|species) + propto(0 + species|g,phylo.mat), -->
-
 <!--                   family = gaussian(), -->
-
 <!--                   data = ord.dat) -->
-
 <!-- ) -->
-
 <!-- # output -->
-
 <!-- data.frame( -->
-
 <!--   model = c("Ordinal beta", "gaussian"), -->
-
 <!--   convergence = c(m5$sdr$pdHess, m6$sdr$pdHess), -->
-
 <!--   runtime = c(time_ord[["elapsed"]], time_norm[["elapsed"]]), -->
-
 <!--   AIC = c(AIC(m5), AIC(m6)) -->
-
 <!-- ) -->
 
 ##### Model diagnostics
@@ -1504,16 +1523,18 @@ We want to obtain a phylogenetic matrix that match all genera in the Ks dataset.
 
 # create dat for ks (remove all missing values)
 ks.dat <- subset(hydra.dat, !is.na(Ks))
+all(is.na(ks.dat$genus))
 
-# get common genus across dataset and tree
+# get common genus dataset and tree
 common.genus <- intersect(plant.tree$tip.label, ks.dat$genus)
-
-# Prune dataset
-ks.dat <- ks.dat[ks.dat$genus %in% common.genus, ]
 
 # Prune tree
 plant.tree.pruned <- ape::drop.tip(plant.tree, setdiff(plant.tree$tip.label, common.genus))
-length(plant.tree.pruned$tip.label)
+#length(plant.tree.pruned$tip.label)
+
+# Prune dataset
+ks.dat <- ks.dat[ks.dat$genus %in% common.genus, ]
+#length(table(ks.dat$genus))
 
 # check whether names match in data and tree
 check <- geiger::name.check(plant.tree.pruned, ks.dat$genus, sort(plant.tree.pruned$tip.label))
@@ -1524,8 +1545,7 @@ phylo.mat.p <- phylo.mat.p[sort(rownames(phylo.mat.p)), sort(rownames(phylo.mat.
 
 # set up inverse phylogenetic correlation matrix for MCMCglmm
 phylo.inv <- MCMCglmm::inverseA(plant.tree.pruned, nodes = "TIPS")$Ainv
-phylo.inv <- phylo.inv[order((rownames(phylo.inv))), order((rownames(phylo.inv)))]
-
+phylo.inv <- phylo.inv[sort(rownames(phylo.inv)),]
 
 # checks   
 # length(colnames(phylo.mat.p))==length(table(ks.dat$genus))
@@ -1571,30 +1591,52 @@ Now, we will fit the Gaussian Log(Ks) model with MCMCglmm:
 #| eval: FALSE
 #| echo: FALSE
 # set priors
-prior2 <- list(
+prior.hydra <- list(
   R = list(V = 1, nu = 0.002), 
   G = list(G1 = list(V = 1, nu = 0.002), 
            G2 = list(V = 1, nu = 0.002))) # two random effects, phylogeny and genus
 
 # set up random effects for MCMCglmm
 ks.dat$phylo <- ks.dat$genus
-rownames(phylo.inv) <- levels(ks.dat$phylo)
-ks.dat$phylo <- as.character(ks.dat$phylo)
+all(rownames(phylo.inv) == levels(ks.dat$phylo))
+# check if positive definite 
+kappa(phylo.inv) # should be > 0.1
+try(chol(phylo.inv), silent = TRUE)
 
-ks.dat$phylo
 
 # normal
 time_mcmc.norm <- system.time(
   m6.mcmc <- MCMCglmm(log(Ks) ~ group, random = ~genus + phylo,
                       family = "gaussian",
                       ginverse = list(phylo = phylo.inv),
-                      prior = prior2,
+                      prior = prior.hydra,
                       data = ks.dat,
                       verbose=FALSE,
                       nitt=13000,
                       burnin=3000,
                       thin=10)
 )
+
+
+# set priors for two random effects
+prior <- list(G=list(G1=list(V=1,nu=1,alpha.mu=0,alpha.V=1000), 
+                     G2=list(V=1,nu=1,alpha.mu=0,alpha.V=1000)),
+              R=list(V=1,nu=0.02))
+
+# fit MCMCglmm model
+time.mcmc <- system.time({
+  model_mcmc <- MCMCglmm(yi ~ x,
+                         random = ~species + phylo,
+                         family = "gaussian",
+                         ginverse = list(phylo = phylo.prec.mat),
+                         prior = prior,
+                         data = dat,
+                         verbose = FALSE,
+                         nitt = 303000, # increase default by x30
+                         burnin = 3000, # default
+                         thin = 10) # default
+})
+
 
 # check convergence
 m6.mcmc.conv <- heidel.diag(m6.mcmc$Sol[,1])$pvalue > 0.05 # check convergence of fixed effect
@@ -1776,9 +1818,17 @@ Hadfield, J. D. (2024, May). MCMCglmm: MCMC Generalised Linear Mixed Models. Ret
 
 Hill, G. E., & McGraw, K. J. (2006). Bird Coloration, Volume 2: Function and Evolution. Harvard University Press. https://doi.org/10.2307/j.ctv22jnr8k
 
+Kristensen, K., & McGillycuddy, M. (2025). Covariance structures with glmmTMB. https://cran.r-project.
+org/web/packages/glmmTMB/vignettes/covstruct.html
+
+McGillycuddy, M. (2023). Model-Based Assessment of Treatment Effect in Multivariate Abundance Data
+[Doctoral dissertation, The University of New South Wales].
+
 Sanchez-Martinez, P., Martinez-Vilalta, J., Dexter, K. G., Segovia, R. A., & Mencuccini, M. (2020). Adaptation and coordinated evolution of plant hydraulic traits. Ecology Letters, 23 (11), 1599–1610. https://doi.org/10.1111/ele.13584
 
 Trugman, A. T., Anderegg, L. D. L., Shaw, J. D., & Anderegg, W. R. L. (2020). Trait velocities reveal that mortality has driven widespread coordinated shifts in forest hydraulic trait composition. Proceedings of the National Academy of Sciences, 117(15), 8532–8538. https://doi.org/10.1073/pnas.1917521117
+
+
 
 # Session information
 
@@ -1802,3 +1852,4 @@ details(si, summary = 'Current session info', open = FALSE)
 ```
 
 
+<a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Bird icon created by Smashicons - Flaticon </a>
