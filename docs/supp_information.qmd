@@ -29,6 +29,7 @@ editor_options:
 <!-- page-layout: full -->
 <!-- <img src="robin.png" alt="Robin icon" width="25"> -->
 
+
 # Overview 
 
 ```{r setup}
@@ -63,26 +64,19 @@ This webpage is organised in three sections:
 
 3. Finally, we present two case studies that apply these methods to ecological and evolutionary data, the first on bird colour traits and the second on plant traits (see [Case studies](#case-studies)).
 
+### Contact
 
 For questions or error reports, contact Coralie Williams: 
 [coralie.williams@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or 
 [coraliewilliams@outlook.com](mailto:coraliewilliams@outlook.com)
 
 
-> **Note**  
-> This site will be updated regularly, and there might still be small mistakes.
-
-
-**Last updated on:** `r format(Sys.time(), '%d %B %Y')`
+Last updated on: `r format(Sys.time(), '%d %B %Y')`
 
 
 # Models {#models}
 
 We demonstrate and explain how to fit phylogenetic generalized mixed models (PGLMM) using five different packages which we used in our simulation study: `glmmTMB`, `phyr`, `MCMCglmm`, `brms`, and `INLA`. The models are fitted to one simulated dataset using a randomly generated phylogenetic tree and a set of model parameters. We compare the performance of these packages in terms of runtime, accuracy, and bias of the fixed effect mean and random effect variance estimates.
-
-<!-- ::: panel-tabset -->
-
-<!-- ## Repeated measures per species -->
 
 We assume a set of trait measures $y_{ij}$ repeated measure (observation) $i$ and for each species $j$. The model is specified as follows:
 
@@ -166,6 +160,9 @@ View first five rows of the simulated dataset:
 ```{r}
 head(dat)
 ```
+
+<!-- ::: panel-tabset -->
+<!-- ## Repeated measures per species -->
 
 ## Run models
 
@@ -570,6 +567,22 @@ kable(res_rand,
 )
 
 ```
+
+<!-- ::: -->
+
+<!-- ::: panel-tabset -->
+<!-- ## One measure per species -->
+
+
+<!-- ::: -->
+
+
+<!-- Extra things I want to add to webpage: -->
+<!-- -   Incorporating phylogenetic tree uncertainty using rubin's rule (with several candidate trees) -->
+<!-- -   Trying out random slope models (not sure though yet how to do this and might not be possible right now) -->
+
+
+
 
 # Bayesian MCMC model runtime {#runtimes}
 
@@ -1690,7 +1703,7 @@ Residual diagnostics are relatively similar.
 
 #### Results
 
-Get phylogenetic signal from glmmTMB model: 
+Get phylogenetic signal from glmmTMB Gaussian model: 
 
 ```{r}
 #| output: true
@@ -1706,6 +1719,8 @@ p.signal
 
 ```
 
+We found that the phylogenetic species effect explained 83.9% of the total species level random effect variance, and hence the non-phylogenetic effect explained only 16.1% of the total species level random effect variance.
+
 
 Get model estimated marginals means on the response scale:
 
@@ -1713,22 +1728,28 @@ Get model estimated marginals means on the response scale:
 #| eval: FALSE
 #| echo: FALSE
 # Estimated marginal means on the response scale (odds)
-emm_m3 <- emmeans(m3, ~ sex | body_region, type = "response")
+emm_m6 <- emmeans(m6, ~ group, type = "response")
+emm_m6
 
-# get contrasts (odds ratios)
-m3_sex_prob <- contrast(emm_m3, method = "pairwise", reverse=TRUE) |> 
+# Get the contrast between the two groups
+group_diff <- contrast(emm_m6, method = "pairwise", reverse=TRUE) |> 
   summary(infer = TRUE, type = "response")
 
-# Put into data frame for plotting
-sex_prob_df <- as.data.frame(m3_sex_prob) |>
-  rename(ratio = odds.ratio, lower.CL = asymp.LCL, upper.CL = asymp.UCL)
+
+# Plot
+ggplot(group_diff, aes(y = contrast, x = ratio)) +
+  geom_point(size = 3, colour = "#6BAF92") +
+  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), 
+                width = 0.2, colour = "#6BAF92") +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
+  labs(y = NULL, x = "",
+       title = "kS contrast: Angiosperms vs Gymnosperms") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+
 
 ```
-
-
-
-
-
 
 
 
@@ -1851,5 +1872,7 @@ details(si, summary = 'Current session info', open = FALSE)
 
 ```
 
+> **Note**  
+> This site may still be updated, and could be small mistakes.
 
 <a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Bird icon created by Smashicons - Flaticon </a>

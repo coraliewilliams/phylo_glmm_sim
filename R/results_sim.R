@@ -62,15 +62,15 @@ res2.dat_conv_summary <- tab.conv |>
   mutate(model = factor(Var2, levels=c("brms", "MCMCglmm", "INLA", "glmmTMB", "phyr"))) |> 
   arrange(model)
 
-# merge convergence info
-conv.tab <- full_join(res1.dat_conv_summary, res2.dat_conv_summary, by = "model") %>%
-  rename(Package = model) %>%
-  select(Package, `25`, `50`, `100`, `200`, `400`, `800`)
+# # merge convergence info
+# conv.tab <- full_join(res1.dat_conv_summary, res2.dat_conv_summary, by = "model") %>%
+#   rename(Package = model) %>%
+#   select(Package, `25`, `50`, `100`, `200`, `400`, `800`)
 
 
-# Create summary tables of convergence % for Supp. information
-print(xtable(conv.tab, digits = 1),
-      include.rownames = FALSE)
+# # Create summary tables of convergence % for Supp. information
+# print(xtable(conv.tab, digits = 1),
+#       include.rownames = FALSE)
 # check ESS
 #table(res1.dat$ESS>400, res1.dat$model)
 #table(res2.dat$ESS>400, res2.dat$model)
@@ -289,7 +289,6 @@ res2$model <- factor(res2$model,
 
 ####### Fig. 1: run time of all models per species size
 
-
 options(digits = 1, scipen = 5)
 
 # Plot run times vs packages (y-axis on log10 scale) - set1
@@ -401,8 +400,6 @@ b1_bias_plot <- res1 |>
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_b1_bias_set1.png", width = 5, height = 5)
-
 
 
 # RMSE ---
@@ -412,13 +409,11 @@ b1_rmse_plot <- res1 |>
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   labs(title=TeX("RMSE $\\hat{\\beta_1}$"),x="Package", y = TeX("RMSE $\\hat{\\beta_1}$"))+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  #facet_wrap(~nrep, ncol=4)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
-
-ggsave(filename = "output/Figure_b1_rmse_set1.png", width = 5, height = 5)
 
 
 
@@ -429,12 +424,10 @@ b1_rmse_scaled_plot <- res1 |>
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   labs(title=TeX("Scaled RMSE $\\hat{\\beta_1}$"),x="Package", y = TeX("Scaled RMSE $\\hat{\\beta_1}$"))+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
-
-ggsave(filename = "output/Figure_b1_scaled_rmse_set1.png", width = 5, height = 5)
 
 
 # CI width ---
@@ -444,14 +437,11 @@ b1_ci_width_plot <- res1 |>
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   labs(title=TeX("95% confidence interval width $\\hat{\\beta_1}$"),x="Package", y = TeX("$\\hat{\\beta_1}$ CI width"))+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+ ## alternatively I can use nrep here --- discuss!
-  #facet_wrap(~nrep, ncol=4)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+ ## alternatively I can use nrep here --- discuss!
+  facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
-
-ggsave(filename = "output/Figure_b1_ci_width_set1.png", width = 5, height = 5)
-
 
 
 # coverage ---
@@ -462,14 +452,12 @@ b1_cov_plot <- cov.dat.b1 |>
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   scale_y_continuous(breaks=seq(0.9, 1, 0.01), limits=c(0.9, 1)) +
   labs(title=TeX("Coverage $\\hat{\\beta_1}$"),x="Package", y = TeX("Coverage $\\hat{\\beta_1}$"))+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  #facet_wrap(~nrep, ncol=4)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.4)+
   geom_hline(yintercept=0.95, colour="darkgray", linewidth=0.6)+ 
   theme_bw() +
   theme(legend.position="none")
-
-ggsave(filename = "output/Figure_b1_cov_set1.png", width = 5, height = 5)
 
 
 
@@ -482,7 +470,65 @@ fig_b1 <- b1_rmse_plot +
                   theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
 
 
+ggsave(filename = "output/Figure_b1_estimate_nreps.png", width = 11.5, height = 13)
+
+
+
+##
+
+
+# RMSE ---
+b1_rmse_plot <- res1 |> 
+  ggplot(aes(x=factor(model), y=rmse_b1, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("RMSE $\\hat{\\beta_1}$"),x="Package", y = TeX("RMSE $\\hat{\\beta_1}$"))+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# CI width ---
+b1_ci_width_plot <- res1 |> 
+  ggplot(aes(x=factor(model), y=mu_ci_width, fill=model, color=model)) + 
+  geom_boxplot(width=0.4)+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("95% confidence interval width $\\hat{\\beta_1}$"),x="Package", y = TeX("$\\hat{\\beta_1}$ CI width"))+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+ ## alternatively I can use nrep here --- discuss!
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# coverage ---
+b1_cov_plot <- cov.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=cov_prop, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  scale_y_continuous(breaks=seq(0.9, 1, 0.01), limits=c(0.9, 1)) +
+  labs(title=TeX("Coverage $\\hat{\\beta_1}$"),x="Package", y = TeX("Coverage $\\hat{\\beta_1}$"))+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.4)+
+  geom_hline(yintercept=0.95, colour="darkgray", linewidth=0.6)+ 
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# combine plots
+fig_b1 <- b1_rmse_plot + 
+  b1_ci_width_plot + 
+  b1_cov_plot + 
+  plot_layout(ncol=1, guides = "collect") +
+  plot_annotation(tag_levels='A',
+                  theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
+
+
 ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 11.5, height = 13)
+
 
 
 
