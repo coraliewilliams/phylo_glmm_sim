@@ -470,12 +470,12 @@ fig_b1 <- b1_rmse_plot +
                   theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
 
 
-ggsave(filename = "output/Figure_b1_estimate_nreps.png", width = 11.5, height = 13)
+ggsave(filename = "output/Figure_b1_estimate_nreps.png", width = 11, height = 11)
 
 
 
-##
 
+# Now for n_species as the facet --
 
 # RMSE ---
 b1_rmse_plot <- res1 |> 
@@ -527,7 +527,7 @@ fig_b1 <- b1_rmse_plot +
                   theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
 
 
-ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 11.5, height = 13)
+ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 9, height = 11)
 
 
 
@@ -536,63 +536,74 @@ ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 11.5, height
 
 ### 3. Non-phylo variance estimate -----------------------------------
 
-options(digits = 1, scipen = 5)
-# log10 raw variance estimate values 
-s2.sp_plot <- res1 |> 
-  filter(sigma2.s==0.25) |>
-  #filter(model != "INLA") |>
-  ggplot(aes(x=factor(model), y=s2_sp, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("Log10 $\\sigma^2_s$ estimate"),x="Package", y = TeX("Log10 $\\sigma^2_s$ estimate"))+
-  scale_y_log10() +
-  geom_hline(yintercept=0.05, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-ggsave(filename = "output/Fig.test_sigma2.sp_log10.png", width = 10, height = 7)
 
 
 options(digits = 3, scipen = 5)
 # bias of variance estimate
-s2.sp_plot_bias <- res1 |> 
-  #filter(model != "INLA") |>
+s2.sp1_plot_bias <- res1 |> 
+  filter(sigma2.s==0.25) |>
   ggplot(aes(x=factor(model), y=s2_sp_bias, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("Bias $\\hat{\\sigma^2_s}$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_s}"))+
-  scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
+  labs(title=TeX("$\\sigma^2_s=0.25$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_s}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
   geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_sigma2_sp_bias.png", width = 10, height = 7)
-
 
 # RMSE
-s2.p_plot_rmse <- res1 |> 
-  #filter(model != "INLA") |>
+s2.sp1_plot_rmse <- res1 |> 
+  filter(sigma2.s==0.25) |>
   ggplot(aes(x=factor(model), y=rmse_s2_sp, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title="Plot of RMSE in non-phylo variance estimates",x="Package", y = "RMSE")+
-  scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
+  labs(title=TeX("$\\sigma^2_s=0.25$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_s}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   #facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_sigma2_sp_rmse.png", width = 10, height = 7)
 
 
+
+options(digits = 3, scipen = 5)
+# bias of variance estimate
+s2.sp2_plot_bias <- res1 |> 
+  filter(sigma2.s==0.05) |>
+  ggplot(aes(x=factor(model), y=s2_sp_bias, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_s=0.05$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_s}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
+  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
+  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# RMSE
+s2.sp2_plot_rmse <- res1 |> 
+  filter(sigma2.s==0.05) |>
+  ggplot(aes(x=factor(model), y=rmse_s2_sp, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_s=0.05$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_s}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
+  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  #facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
 
 
 
@@ -601,60 +612,75 @@ ggsave(filename = "output/Figure_sigma2_sp_rmse.png", width = 10, height = 7)
 
 ### 4. Phylo variance estimate -----------------------------------
 
-options(digits = 1, scipen = 5)
-# log10 values 
-s2.p_plot <- res1 |> 
-  #filter(model != "INLA") |>
-  ggplot(aes(x=factor(model), y=s2_phylo, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("Log10 $\\sigma^2_p$ estimate"),x="Package", y = TeX("Log10 $\\sigma^2_p$ estimate"))+
-  scale_y_log10() +
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-ggsave(filename = "output/Fig.test_sigma2.phylo_log10.png", width = 10, height = 7)
-
 
 options(digits = 3, scipen = 5)
-# bias 
-s2.p_plot_bias <- res1 |> 
-  #filter(model != "INLA") |>
+# bias of variance estimate
+s2.p1_plot_bias <- res1 |> 
+  filter(sigma2.p==0.25) |>
   ggplot(aes(x=factor(model), y=s2_phylo_bias, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("Bias $\\sigma^2_p$ estimate"),x="Package", y = TeX("Bias $\\sigma^2_p$ estimate"))+
-  scale_y_continuous(breaks=seq(-0.5, 5, 0.5), limits=c(-0.5, 5)) + 
+  labs(title=TeX("$\\sigma^2_p=0.25$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_p}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
   geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_sigma2_phylo_bias.png", width = 10, height = 7)
-
 
 # RMSE
-s2.p_plot_rmse <- res1 |> 
-  #filter(model != "INLA") |>
+s2.p1_plot_rmse <- res1 |> 
+  filter(sigma2.p==0.25) |>
   ggplot(aes(x=factor(model), y=rmse_s2_phylo, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title="Plot of RMSE in phylo variance estimates",x="Package", y = "RMSE")+
-  scale_y_continuous(breaks=seq(-0.5, 5, 0.5), limits=c(-0.5, 5)) +
+  labs(title=TeX("$\\sigma^2_p=0.25$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_p}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   #facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_sigma2_phylo_rmse.png", width = 10, height = 7)
+
+
+
+options(digits = 3, scipen = 5)
+# bias of variance estimate
+s2.p2_plot_bias <- res1 |> 
+  filter(sigma2.p==0.05) |>
+  ggplot(aes(x=factor(model), y=s2_phylo_bias, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_p=0.05$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_p}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
+  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
+  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# RMSE
+s2.p2_plot_rmse <- res1 |> 
+  filter(sigma2.p==0.05) |>
+  ggplot(aes(x=factor(model), y=rmse_s2_phylo, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_p=0.05$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_p}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
+  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  #facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
 
 
 
@@ -662,24 +688,6 @@ ggsave(filename = "output/Figure_sigma2_phylo_rmse.png", width = 10, height = 7)
 
 ### 5. Residual variance estimate -----------------------------------
 
-
-options(digits = 1, scipen = 5)
-# log10 values 
-s2.e_plot <- res1 |> 
-  #filter(model != "INLA") |>
-  ggplot(aes(x=factor(model), y=s2_resid, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) +  
-  labs(title=TeX("Log10 $\\sigma^2_e$ estimate"),x="Package", y = TeX("Log10 $\\sigma^2_e$ estimate"))+
-  scale_y_log10() +
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-ggsave(filename = "output/Fig.test_sigma2.e_log10.png", width = 10, height = 7)
 
 
 options(digits = 3, scipen = 5)
@@ -690,14 +698,14 @@ s2.e_plot_bias <- res1 |>
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("Bias $\\sigma^2_e$ estimate"),x="Package", y = TeX("Bias $\\sigma^2_e$ estimate"))+
+  labs(title=TeX("$\\sigma^2_e=0.2$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_e}"))+
   geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_sigma2_resid_bias.png", width = 10, height = 7)
+#ggsave(filename = "output/Figure_sigma2_resid_bias.png", width = 10, height = 7)
 
 
 # RMSE
@@ -707,28 +715,45 @@ s2.e_plot_rmse <- res1 |>
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title="Plot of RMSE in residual variance estimates",x="Package", y = "RMSE")+
+  labs(title=TeX("$\\sigma^2_e=0.2$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_e}"))+
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   #facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_sigma2_resid_rmse.png", width = 10, height = 7)
+#ggsave(filename = "output/Figure_sigma2_resid_rmse.png", width = 10, height = 7)
 
 
 
 
 # Combine plots of variance estimates
-fig_variance <- s2.sp_plot_bias + 
-  s2.p_plot_bias + 
-  s2.e_plot_bias + 
-  plot_layout(ncol=1, guides = "collect") +
-  plot_annotation(tag_levels='A',
-                  theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
+fig_variance <- (s2.sp1_plot_bias | s2.sp1_plot_rmse) /
+  (s2.p1_plot_bias  | s2.p1_plot_rmse) /
+  (s2.e_plot_bias   | s2.e_plot_rmse) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    tag_levels = 'A',
+    theme = theme(plot.background = element_rect(fill = "white", colour = NA))
+  )
+
+ggsave(filename = "output/Figure_variance_estimates.png", width = 8, height = 10)
 
 
-ggsave(filename = "output/Figure_variance_estimates_bias.png", width = 10, height = 12)
+
+
+# Combine plots of variance estimates (Supp. Info)
+fig_variance <- (s2.sp2_plot_bias | s2.sp2_plot_rmse) /
+  (s2.p2_plot_bias  | s2.p2_plot_rmse) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    tag_levels = 'A',
+    theme = theme(plot.background = element_rect(fill = "white", colour = NA))
+  )
+
+ggsave(filename = "output/Figure_variance_estimates_suppinfo.png", width = 10, height = 8)
+
+
 
 
 

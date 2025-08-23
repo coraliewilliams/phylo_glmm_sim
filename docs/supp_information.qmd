@@ -1482,7 +1482,7 @@ sex_OR <- as.data.frame(m5_sex_OR) |>
 sex_OR
 ```
 
-## Case study 2: Evolution of plant hydraulic traits (TBD)
+## Case study 2: Evolution of plant hydraulic traits 
 
 We re-analysed the published study of Sanchez-Martinez et al. (2020) on the evolution of plant hydraulic traits using phylogenetic generalized linear mixed models (PGLMMs). The original study used a Bayesian MCMC approach to fit the models with the `MCMCglmm` package. Here we will use the `glmmTMB` package to fit the models with different sampling distributions and compare with `MCMCglmm`. Again all results are for illustrative purpose only and we do not intend to infer any biological or ecological conclusions from the following results.
 
@@ -1725,8 +1725,7 @@ We found that the phylogenetic species effect explained 83.9% of the total speci
 Get model estimated marginals means on the response scale:
 
 ```{r}
-#| eval: FALSE
-#| echo: FALSE
+
 # Estimated marginal means on the response scale (odds)
 emm_m6 <- emmeans(m6, ~ group, type = "response")
 emm_m6
@@ -1753,6 +1752,7 @@ ggplot(group_diff, aes(y = contrast, x = ratio)) +
 
 
 
+
 ### 2. Model for P50
 
 P50 represents the level of water stress at which a tree experiences a 50% loss of hydraulic conductivity. More negative P50 values indicate that trees can withstand greater hydraulic stress before suffering hydraulic damage, so communities with lower P50s are considered more resilient to increasing water stress (Trugman et al., 2020).
@@ -1770,19 +1770,22 @@ First, le's a phylogenetic matrix that match all genera in the P50 dataset. We w
 #| cache: TRUE
 
 # create dat for ks (remove all missing values)
-ks.dat <- subset(hydra.dat, !is.na(Ks))
+p50.dat <- subset(hydra.dat, !is.na(P50))
+
+# create negative P50 variable
+p50.dat$negP50 <- - p50.dat$P50
 
 # get common genus across dataset and tree
-common.genus <- intersect(plant.tree$tip.label, ks.dat$genus)
+common.genus <- intersect(plant.tree$tip.label, p50.dat$genus)
 
 # Prune dataset
-ks.dat <- ks.dat[ks.dat$genus %in% common.genus, ]
+p50.dat <- p50.dat[p50.dat$genus %in% common.genus, ]
 
 # Prune tree
 plant.tree.pruned <- ape::drop.tip(plant.tree, setdiff(plant.tree$tip.label, common.genus))
 
 # check whether names match in data and tree
-check <- geiger::name.check(plant.tree.pruned, ks.dat$genus, sort(plant.tree.pruned$tip.label))
+check <- geiger::name.check(plant.tree.pruned, p50.dat$genus, sort(plant.tree.pruned$tip.label))
 
 # set up phylogenetic correlation matrix
 phylo.mat.p <- vcv(plant.tree.pruned, corr = TRUE) 
@@ -1793,19 +1796,41 @@ phylo.mat.p.inv <- solve(phylo.mat.p)
 
 
 # checks   
-# length(colnames(phylo.mat.p))==length(table(ks.dat$genus))
+# length(colnames(phylo.mat.p))==length(table(p50.dat$genus))
 # all(head(rownames(phylo.mat.p))==head(colnames(phylo.mat.p)))
-# head(table(ks.dat$genus))
+# head(table(p50.dat$genus))
 
 ```
 
 
 ```{r}
+#| cache: true 
 
-# log_negP50 ~ animal + genus.Rand
+# make sure to add grouping factor for glmmTMB
+p50.dat$g <- 1
+p50.dat$genus <- as.factor(p50.dat$genus)
+
+
+# Fit models --------------
+
+# normal
+time_norm <- system.time(
+  m8 <- glmmTMB(log(negP50) ~ group + (1|genus) + propto(0 + genus|g, phylo.mat.p),
+                      family = gaussian(),
+                      REML=TRUE,
+                      data = p50.dat)
+  )
+
+# Gamma distribution
+time_gamma <- system.time(
+  m9 <- glmmTMB(negP50 ~ group + (1|genus) + propto(0 + genus|g,phylo.mat.p),
+                      family = Gamma(link = "log"),
+                      data = p50.dat)
+)
 
 
 ```
+
 
 Same models with MCMCglmm
 
@@ -1813,21 +1838,80 @@ Same models with MCMCglmm
 
 ```
 
-#### Diagnostics
+#### Diagnostic plots
+
+
+Let's check residual plots with the DHARMa packages. First, the log(Ks) assuming normal distribution residual checks:
+
+```{r}
+#| cache: true 
+res_norm <- DHARMa::simulateResiduals(fittedModel = m8)
+plot(res_norm)
+
+```
+
+The model checks assuming Gamma distribution and log link function:
+
+```{r}
+#| cache: true 
+res_gamma <- DHARMa::simulateResiduals(fittedModel = m9)
+plot(res_gamma)
+
+```
+
+
+Residual diagnostics are relatively similar, for both distributions so we keep the Gaussian log(response) model specification.
 
 #### Results
 
-Compare model outputs + run time
+Get phylogenetic signal from glmmTMB Gaussian model: 
 
 ```{r}
+#| output: true
+#| cache: true 
+
+# get random effect component estimates on SD-scale 
+m9_re <- as.data.frame(confint(m9, parm="theta_"))
+sigma2_s <- m9_re$Estimate[1]^2 # non-phylogenetic variance
+sigma2_p <- m9_re$Estimate[2]^2 # phylogenetic variance estimate
+
+p.signal <- sigma2_p / (sigma2_p + sigma2_s)
+p.signal
 
 ```
 
-Get phylogenetic signal from glmmTMB model for both traits
+We found that the phylogenetic species effect explained 83.9% of the total species level random effect variance, and hence the non-phylogenetic effect explained only 16.1% of the total species level random effect variance.
+
+
+Get model estimated marginals means on the response scale:
 
 ```{r}
 
+# Estimated marginal means on the response scale (odds)
+emm_m9 <- emmeans(m9, ~ group, type = "response")
+emm_m9
+
+# Get the contrast between the two groups
+group_diff <- contrast(emm_m9, method = "pairwise", reverse=TRUE) |> 
+  summary(infer = TRUE, type = "response")
+
+
+# Plot
+ggplot(group_diff, aes(y = contrast, x = ratio)) +
+  geom_point(size = 3, colour = "#6BAF92") +
+  geom_errorbar(aes(xmin = asymp.LCL, xmax = asymp.UCL), 
+                width = 0.2, colour = "#6BAF92") +
+  geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
+  labs(y = NULL, x = "",
+       title = "kS contrast: Angiosperms vs Gymnosperms") +
+  theme_bw() +
+  theme(legend.position = "none")
+
+
+
 ```
+
+
 
 # References
 
