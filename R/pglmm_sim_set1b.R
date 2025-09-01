@@ -3,7 +3,7 @@ rm(list=ls())
 # Load packages -----------------------------------------
 
 library("pacman")
-p_load(parallel, ape, MCMCglmm, plyr, dplyr, R.utils, glmmTMB, INLA,
+p_load(parallel, ape, MCMCglmm, brms, plyr, dplyr, R.utils, glmmTMB, INLA,
        broom.mixed, ggstance, MASS, stringr, remotes, bayestestR, performance)
 
 
@@ -173,6 +173,35 @@ conv_tmb <- if (!is.null(model_glmmTMB)) model_glmmTMB$sdr$pdHess else FALSE
 
 
 
+### brms model ###
+# brms does not allow for duplicated group-level effects
+res_brms <- run_model_safely({
+  brm(yi ~ x + (1|gr(phylo, cov = phylo.mat)), #phylo.mat is the correlation matrix
+      data = dat,
+      family = gaussian(),
+      chains = 4, # default
+      iter = 20000, # increased default x10
+      cores = 4, # equal to number of chains
+      data2 = list(phylo.mat = phylo.mat))
+})
+
+
+model_brm <- res_brms$value
+model_brm_error <- if (is.null(res_brms$error)) NA else res_brms$error$message
+model_brm_warning <- if (is.null(res_brms$warning)) NA else res_brms$warning$message
+time.brms <- res_brms$rtime
+# make a warning if at least one Rhat value is above 1.01 (Vehtari et al, 2021)
+conv_brms <- if (!is.null(model_brm)) max(rhat(model_brm)) < 1.01 else FALSE
+# store smallest ESS of model
+ess_brms <- if (!is.null(model_brm)) {
+  min(c(
+    effective_sample(model_brm, effects = "fixed")$ESS,
+    effective_sample(model_brm, effects = "random")$ESS
+  ), na.rm = TRUE)
+} else NA
+
+
+
 
 ### MCMCglmm model ###
 
@@ -247,6 +276,10 @@ coefs_tmb <- if (!is.null(model_glmmTMB)) {
   as.data.frame(confint(model_glmmTMB, parm = "beta_"))
 } else data.frame(Estimate = NA, `2.5 %` = NA, `97.5 %` = NA)
 
+# brms
+coefs_brm <- if (!is.null(model_brm)) {
+  as.data.frame(tidy(model_brm, effects = "fixed", conf.int = TRUE))
+} else data.frame(estimate = NA, conf.low = NA, conf.high = NA)
 
 # MCMCglmm 
 coefs_mcmc <- if (!is.null(model_mcmc)) {
@@ -298,6 +331,26 @@ sigma2_tmb <- if (!is.null(model_glmmTMB)) {
 )
 
 
+
+
+
+# get brms random effect variance estimates (standard deviation scale)
+sigma2_brms <- if (!is.null(model_brm)) {
+  tidy(model_brm, effects = "ran_pars") |>
+    mutate(model = "brms",
+           term=str_replace(term, "sd", "var"),
+           estimate = estimate^2) |>  # convert SD to variance
+    dplyr::select(model, group, term, estimate, std.error, conf.low, conf.high)
+} else data.frame(
+  model = "brms",
+  group = c("species", "phylo", "Residual"),
+  term = "var",
+  estimate = NA, std.error = NA, conf.low = NA, conf.high = NA
+)
+
+
+
+
 # get MCMCglmm random effect estimates (variance scale)
 sigma2_mcmc <- if (!is.null(model_mcmc)) {
   tidy(model_mcmc, effects = "ran_pars", conf.int = TRUE) |>
@@ -337,6 +390,7 @@ sigma2_inla <- if (!is.null(model_inla)) {
 
 # merge fixed results together
 s2 <- as.data.frame(bind_rows(sigma2_tmb, 
+                              sigma2_brms,
                               sigma2_mcmc, 
                               sigma2_inla))
 
@@ -352,28 +406,31 @@ s2_res <- s2 %>% filter(group=="Residual")
 
 # Combine the results for this iteration
 result <- data.frame(
-  model = c("glmmTMB", "MCMCglmm", "INLA"),
-  model_error = c(model_glmmTMB_error, model_mcmc_error, model_inla_error),
-  model_warning = c(model_glmmTMB_warning, model_mcmc_warning, model_inla_warning),
-  convergence = c(conv_tmb, conv_mcmc, conv_inla),
-  ESS = c(NA, ess_mcmc, NA),
-  species_size = rep(k.species, 3),
-  sample_size = rep(n, 3),
-  scenario = rep(scen, 3),
-  seed = rep(seed, 3),
-  b0 = rep(b0, 3),
-  b1 = rep(b1, 3),
-  sigma2.p = rep(sigma2.p, 3),
-  sigma2.e = rep(sigma2.e, 3),
-  run_time = c(time.glmmTMB, time.mcmc, time.inla),
+  model = c("glmmTMB", "brms", "MCMCglmm", "INLA"),
+  model_error = c(model_glmmTMB_error, model_brm_error, model_mcmc_error, model_inla_error),
+  model_warning = c(model_glmmTMB_warning, model_brm_warning, model_mcmc_warning, model_inla_warning),
+  convergence = c(conv_tmb, conv_brms, conv_mcmc, conv_inla),
+  ESS = c(NA, ess_brms, ess_mcmc, NA),
+  species_size = rep(k.species, 4),
+  sample_size = rep(n, 4),
+  scenario = rep(scen, 4),
+  seed = rep(seed, 4),
+  b0 = rep(b0, 4),
+  b1 = rep(b1, 4),
+  sigma2.p = rep(sigma2.p, 4),
+  sigma2.e = rep(sigma2.e, 4),
+  run_time = c(time.glmmTMB, time.brms, time.mcmc, time.inla),
   mu = c(coefs_tmb$Estimate[2], 
+         coefs_brm$estimate[2], 
          coefs_mcmc$estimate[2], 
          coefs_inla$mean[2]),
   mu_ci_low = c(coefs_tmb$`2.5 %`[2],
+                coefs_brm$conf.low[2], 
                 coefs_mcmc$conf.low[2], 
                 coefs_inla$`0.025quant`[2]),
   mu_ci_high = c(coefs_tmb$`97.5 %`[2],
-                 coefs_mcmc$conf.high[2], 
+                 coefs_brm$conf.high[2],
+                 coefs_mcmc$conf.high[2],
                  coefs_inla$`0.975quant`[2]),
   s2_phylo = s2_phylo$estimate,
   s2_resid = s2_res$estimate, 

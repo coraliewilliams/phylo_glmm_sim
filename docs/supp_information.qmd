@@ -48,7 +48,7 @@ pacman::p_load(
   rmarkdown, readr, dplyr, purrr, splitstackshape, tidyverse, tidyr, ggplot2,
   vroom, details, sessioninfo, devtools, readxl, forcats, stringr, ape, phytools, 
   geiger, data.table, pavo, MASS, glmmTMB, brms, MCMCglmm, phyr, INLA, broom.mixed,
-  knitr, bayestestR, performance, rbenchmark, here, DHARMa, emmeans
+  knitr, bayestestR, performance, rbenchmark, here, DHARMa, emmeans, purrr
 )
 
 options(digits = 4, scipen = 5)
@@ -130,15 +130,15 @@ x <- runif(n, 10, 20)
 dat <- data.frame(obs = 1:n, x = x, species = sp.id)
 
 # simulate tree and obtain phylo matrix
-tree <- rtree(k.species, tip.label = seq_len(k.species))
-tree <- compute.brlen(tree, power=1) # power of 1 means ultra-metric tree
-phylo.mat <- vcv(tree, corr = TRUE) # we want a correlation matrix (bounded by -1 and 1) ultrametric tree
+tree <- ape::rtree(k.species, tip.label = seq_len(k.species))
+tree <- ape::compute.brlen(tree, power=1) # power of 1 means ultra-metric tree
+phylo.mat <- ape::vcv(tree, corr = TRUE) # we want a correlation matrix (bounded by -1 and 1) ultrametric tree
 phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(rownames(phylo.mat)))]
 
 
 # Simulate response variable (phen) based on cofactor and phylogenetic matrix
 u.s <- rnorm(k.species, 0, sqrt(sigma2.n))[sp.id]
-u.p <- mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
+u.p <- MASS::mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
 ei <- rnorm(n, 0, sqrt(sigma2.e))
 
 # get estimates of y
@@ -160,9 +160,6 @@ View first five rows of the simulated dataset:
 ```{r}
 head(dat)
 ```
-
-<!-- ::: panel-tabset -->
-<!-- ## Repeated measures per species -->
 
 ## Run models
 
@@ -568,20 +565,265 @@ kable(res_rand,
 
 ```
 
-<!-- ::: -->
 
-<!-- ::: panel-tabset -->
-<!-- ## One measure per species -->
+## Extra analyses and notes
+
+::: panel-tabset
+# One measure per species
+
+> Sometimes we only have one measure per species. This may happen because of limited sampling or because repeated observations for a species have already been averaged. In such cases, it is common to work with a single value per species.
+
+Here we will demonstrate how to fit a phylogenetic model when there is one measure per species. We will use the dataset `dat` of repeated measures per species simulated above (300 observations of 30 species) and compute a mean value for each species. 
+
+```{r}
+dat.m <- dat |>
+  group_by(species) |>
+  summarise(
+    x_mean   = mean(x, na.rm = TRUE),
+    u.s_mean = mean(u.s, na.rm = TRUE),
+    u.p_mean = mean(u.p, na.rm = TRUE),
+    ei_mean  = mean(ei, na.rm = TRUE),
+    yi_mean  = mean(yi, na.rm = TRUE),
+    g = 1,
+    .groups = "drop"
+  )
+
+head(dat.m)
+
+```
 
 
-<!-- ::: -->
+So we now have a reduced dataset of 30 rows, with one value per species. 
 
+
+If we now try to fit the same phylogenetic GLMM as before, including both a random intercept for species and a phylogenetic effect:
+
+```{r}
+m <- glmmTMB(
+  yi_mean ~ x_mean + (1|species) + propto(0 + species|g, phylo.mat),
+  data = dat.m,
+  REML = TRUE
+)
+
+# fixed effect estimates
+as.data.frame(confint(m, parm="beta_"))
+
+# random component estimates (on SD scale)
+as.data.frame(confint(m, parm="theta_"))
+
+# residual variance estimate
+sigma(m)^2
+
+```
+
+This model converged, but it returned very wide uncertainty intervals for the non-phylogenetic variance component (on the standard deviation scale). This reflects the fact that, with only one observation per species, the species intercept and the phylogenetic effect are not separately identifiable by the model. In some cases, the model may even fail to converge, highlighting the redundancy of including both terms.
+
+
+```{r}
+m <- glmmTMB(
+  yi_mean ~ x_mean + propto(0 + species|g, phylo.mat),
+  data = dat.m,
+  REML = TRUE
+)
+
+# fixed effect estimates
+as.data.frame(confint(m, parm="beta_"))
+
+# random component estimates (on SD scale)
+as.data.frame(confint(m, parm="theta_"))
+
+# residual variance estimate
+sigma(m)^2
+```
+
+When the non-phylogenetic component is removed, the estimate of the phylogenetic effect remains unchanged, the fixed effects are identical, and the residual variance increases to absorb the variability that can no longer be partitioned between the two random effects.
+
+
+# Random slope
+
+> In some analyses, we may want to include a random slope for the phylogenetic effect. This allows us to ask whether the relationship between a covariate and the response varies among species in a way that reflects their shared evolutionary history. For example, we might be interested in whether species with different body weights show different slopes, or whether the effect of a treatment differs across species in a phylogenetically structured way.
+
+
+Given the above simulated dataset, we assume a set of trait measures $y_{ij}$ repeated measure (observation) $i$ and for each species $j$. The phylogenetic random slope model assuming independence  is specified as follows:
+
+$$
+y_{ij} = \beta_0 + \beta_1 x_{ij} + n_j + p_{0j} + p_{1j}\,x_{ij} + \varepsilon_{ij}
+$$
+
+Where:
+
+-   $p_{0} \sim \mathcal{N}(0, \sigma^2_{p0}\mathbf{A})$: phylogenetic random intercept 
+-   $p_{1} \sim \mathcal{N}(0, \sigma^2_{p1}\mathbf{A})$: phylogenetic random slope, independent of $p_{0}$
+
+
+
+```{r}
+
+m.slope <- glmmTMB(yi ~ x + 
+                     (1|species) + 
+                     propto(0 + species|g, phylo.mat) +
+                     propto(0 + x:species|g, phylo.mat),
+                   data = dat,
+                   REML = TRUE)
+```
+
+Then we can obtain the variance estimates:
+
+```{r}
+vc.slope <- VarCorr(m.slope) 
+vc.slope$cond$species[1] #non-phylo variance
+vc.slope$cond$g[1] #phylo intercept variance
+vc.slope$cond$g.1[1] #phylo slope variance
+```
+
+
+### What if there is a correlation between random intercept and slope?  
+
+`glmmTMB` cannot currently estimate correlated random intercepts and slopes when using the `propto` covariance structure. This means the intercept–slope covariance is fixed at zero and cannot be separated out. A common workaround is to **centre the covariate**, which reparameterises the model so that the intercept represents the expected response at the mean covariate value. This improves interpretability and typically stabilises slope variance estimates, though it does not recover any true intercept–slope correlation.  
+
+If the data contain little or no correlation, the variance estimates from `glmmTMB` with centred covariates will usually be close to those from packages that estimate the correlation. However, if the correlation is strong, `glmmTMB` may distort the partitioning of variance because the shared variation has no explicit covariance term.  
+
+For comparison, the random-effects structure in a model with correlated random intercepts and slopes is:  
+
+$$
+\begin{bmatrix}
+\sigma^2_{\text{intercept}} & \sigma_{\text{intercept},\text{slope}} \\
+\sigma_{\text{intercept},\text{slope}} & \sigma^2_{\text{slope}}
+\end{bmatrix}
+$$  
+
+while in `glmmTMB` with `propto` it is constrained to:  
+
+$$
+\begin{bmatrix}
+\sigma^2_{\text{intercept}} & 0 \\
+0 & \sigma^2_{\text{slope}}
+\end{bmatrix}
+$$  
+
+**Recommendation:** fit models in both `glmmTMB` and in Bayesian frameworks such as the `brms` and `MCMCglmm` packages in R. Use globally centred covariates in both cases: centring helps stabilise estimation in `glmmTMB` and also improves interpretability in Bayesian models, though Bayesian approaches can additionally estimate the correlation directly.  
+
+-   If there is **truly little or no correlation**, the results will look very similar to `glmmTMB`: the variance estimates will be close, and the correlation will be near zero.  
+
+-   If there is **strong correlation**, the slope and intercept variance estimates in `glmmTMB` may still approximate the overall variability, but they could be biased, because part of the shared variation is forced into the variance components rather than partitioned as covariance.
+
+
+
+# Phylogenetic tree uncertainty
+
+> This section is still a work in progress.
+
+> Phylogenetic trees are always approximations and never represent the “true” evolutionary history with complete accuracy. In some cases, however, we may have access to multiple candidate trees. These can be used to fit separate models and then combine the results, for example using Rubin’s rules for multiple imputation.
+
+Here, we illustrate this approach with the simulated repeated-measures species dataset. As a first step, we generate 50 random phylogenetic trees to represent a set of hypothetical candidate trees:
+
+```{r}
+
+set.seed(123)
+
+# simulate 50 random trees 
+trees <- replicate(50, ape::rtree(k.species, tip.label = sp.id), simplify = FALSE)
+
+# now make a phylogenetic correlation matrix for each tree,
+make_phylo_mat <- function(tree, sp) {
+  C <- vcv(tree, corr = TRUE)      
+  ord <- match(sp.id, rownames(C))    
+  C[ord, ord, drop = FALSE]
+}
+
+phylo_mats <- lapply(trees, make_phylo_mat, sp = sp.id)
+
+```
+
+We fit the same model across 50 candidate trees and pool fixed effects using Rubin’s rules (average within-tree variance plus between-tree variance):
+
+
+```{r}
+#| eval: false
+#| echo: false
+fit_one <- function(Cmat) {
+  mod <- glmmTMB(yi ~ x + (1|species) + propto(0 + species|g, Cmat),
+                 data = dat, REML = TRUE)
+  beta <- fixef(mod)$cond                 
+  V    <- diag(vcov(mod)$cond)         
+  reci <- confint(mod, parm = "theta_") 
+  list(beta = beta, var_w = V,
+       re_sd = reci[,"Estimate"],
+       resid_var = sigma(mod)^2)
+}
+
+# Fit across all trees
+fits <- purrr::map(phylo_mats, fit_one)
+m <- length(fits)
+
+```
+
+
+For the random-effect SDs and the residual variance across trees [....]
+
+```{r}
+#| eval: false
+#| echo: false
+# --- Rubin's rules for FIXED EFFECTS ---
+# Stack estimates and within-variances into matrices (rows = trees, cols = terms)
+terms <- names(fits[[1]]$beta)
+est_mat <- do.call(rbind, map(fits, ~ .x$beta[terms]))
+var_mat <- do.call(rbind, map(fits, ~ .x$var_w[terms]))
+
+qbar <- colMeans(est_mat)
+Ubar <- colMeans(var_mat)
+B    <- apply(est_mat, 2, var)
+Tvar <- Ubar + (1 + 1/m) * B
+se   <- sqrt(Tvar)
+ci_lo <- qbar - 1.96 * se
+ci_hi <- qbar + 1.96 * se
+
+rubin_fixed <- data.frame(term = terms, estimate = qbar, se = se,
+                          conf.low = ci_lo, conf.high = ci_hi,
+                          row.names = NULL)
+
+rubin_fixed
+```
+
+
+
+
+```{r}
+#| eval: false
+#| echo: false
+# --- Random-effect SDs -- CHECK THIS
+# Collect each theta SD by name across trees
+re_names <- names(fits[[1]]$re_sd)
+re_mat <- sapply(fits, function(x) x$re_sd[re_names])  # cols = trees
+re_mean   <- rowMeans(re_mat)
+re_median <- apply(re_mat, 1, median)
+re_q25    <- apply(re_mat, 1, quantile, probs = 0.25)
+re_q75    <- apply(re_mat, 1, quantile, probs = 0.75)
+
+re_summary <- data.frame(theta = re_names,
+                         mean_sd = re_mean,
+                         median_sd = re_median,
+                         q25 = re_q25, q75 = re_q75,
+                         row.names = NULL)
+
+# --- Residual variance -- CHECK THIS
+resids <- sapply(fits, `[[`, "resid_var")
+resid_summary <- data.frame(mean_resid_var   = mean(resids),
+                            median_resid_var = median(resids),
+                            q25 = quantile(resids, 0.25),
+                            q75 = quantile(resids, 0.75))
+
+# summaries
+re_summary
+resid_summary
+
+```
+
+
+:::
 
 <!-- Extra things I want to add to webpage: -->
 <!-- -   Incorporating phylogenetic tree uncertainty using rubin's rule (with several candidate trees) -->
-<!-- -   Trying out random slope models (not sure though yet how to do this and might not be possible right now) -->
-
-
 
 
 # Bayesian MCMC model runtime {#runtimes}
@@ -1314,6 +1556,36 @@ carotmod_output <- data.frame(
 carotmod_output 
 
 ```
+
+
+<!-- Test out model  -->
+
+<!-- ```{r} -->
+
+<!-- carot.dat.bis <- carot.dat[match(unique(carot.dat$species), carot.dat$species),] -->
+<!-- carot.dat.bis$g <- 1 -->
+
+
+<!-- m3.bis <- glmmTMB(B1 ~ 1 + (1|species) + propto(0 + species|g,phylo.mat), -->
+<!--                 #family = binomial(link = "logit"), -->
+<!--                 data = carot.dat.bis) -->
+<!-- m3.bis$sdr$pdHess -->
+<!-- VarCorr(m3.bis) -->
+<!-- confint(m3.bis) -->
+
+
+
+<!-- m3.c <- glmmTMB(carotenoid ~ 1 + (1|species) + propto(0 + species|g,phylo.mat), -->
+<!--                 family = binomial(link = "logit"), -->
+<!--                 data = carot.dat) -->
+
+<!-- VarCorr(m3.c) -->
+<!-- confint(m3.c) -->
+
+<!-- ``` -->
+
+
+
 
 ##### Model diagnostics
 

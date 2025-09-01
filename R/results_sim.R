@@ -1,3 +1,6 @@
+# This script has the results for the simulated models with repeated measures per species (n_rep>1)
+# using the model in equation 3 in the main text
+
 ################### Load results #############################
 
 library(ggplot2);library(devtools);library(cowplot);library(ggdark);theme_set(dark_theme_bw())
@@ -12,15 +15,6 @@ res1.dat <- dat
 # load results set 2a (repeated measures)
 load("~/PhD/3_PhyloTMB/sims/sim_set2a_results_pglmm.RDATA")
 res2.dat <- dat
-
-# #---
-# # load results set 1b (one measure per species)
-# load("~/PhD/3_PhyloTMB/sims/sim_results_set1b.RDATA")
-# res1b <- dat
-# 
-# # load results set 2b (one measure per species)
-# load("~/PhD/3_PhyloTMB/sims/sim_results_set2b.RDATA")
-# res2b <- dat
 
 
 
