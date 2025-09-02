@@ -711,113 +711,114 @@ $$
 
 # Phylogenetic tree uncertainty
 
-> This section is still a work in progress.
 
-> Phylogenetic trees are always approximations and never represent the “true” evolutionary history with complete accuracy. In some cases, however, we may have access to multiple candidate trees. These can be used to fit separate models and then combine the results, for example using Rubin’s rules for multiple imputation.
+> Phylogenetic trees are always approximations and never represent the “true” evolutionary history with complete accuracy. In some cases, however, we may have access to multiple candidate trees. These can be used to fit separate models and then combine the results, for example using Rubin’s rules (Rubin, 1987), treating trees like imputations of the unknown phylogeny.
 
-Here, we illustrate this approach with the simulated repeated-measures species dataset. As a first step, we generate 50 random phylogenetic trees to represent a set of hypothetical candidate trees:
+Here, we illustrate how to incorporate tree uncertainty with the simulated repeated-measures dataset. Using about 50 trees is often sufficient for high relative efficiency of the pooled estimates i.e., little further gain (Nakagawa & de Villemereuil, 2019).
+
+As a first step, we generate 50 random phylogenetic trees to represent a set of hypothetical candidate trees. In practice, candidate trees can be obtained from different posterior distributions of phylogenetic trees using Bayesian inference of phylogenies.
 
 ```{r}
 
 set.seed(123)
 
+# 'k.species' and 'dat' are obtained from the 'Simulate data' section
+# where dat$species is set as a factor => make sure to run this first.
+
 # simulate 50 random trees 
-trees <- replicate(50, ape::rtree(k.species, tip.label = sp.id), simplify = FALSE)
+trees <- replicate(50, ape::rtree(k.species, tip.label = seq_len(k.species)), simplify = FALSE)
 
 # now make a phylogenetic correlation matrix for each tree,
 make_phylo_mat <- function(tree, sp) {
   C <- vcv(tree, corr = TRUE)      
-  ord <- match(sp.id, rownames(C))    
-  C[ord, ord, drop = FALSE]
+  C <- C[order(as.numeric(rownames(C))), order(as.numeric(rownames(C)))]
 }
 
-phylo_mats <- lapply(trees, make_phylo_mat, sp = sp.id)
-
+p.mats <- lapply(trees, make_phylo_mat, sp = sp.id)
 ```
 
-We fit the same model across 50 candidate trees and pool fixed effects using Rubin’s rules (average within-tree variance plus between-tree variance):
+::: {.callout-aside}
+Important note: the row `rownames(C)` and column names `colnames(C)` of the phylogenetic correlation matrix must match `levels(dat$species)`, in the same order.
+:::
+
+
+We fit the same model across 50 candidate trees:
 
 
 ```{r}
-#| eval: false
-#| echo: false
-fit_one <- function(Cmat) {
-  mod <- glmmTMB(yi ~ x + (1|species) + propto(0 + species|g, Cmat),
+# function to fit PGLMM with different tree
+fit_model <- function(Pmat) {
+  glmmTMB(yi ~ x + (1|species) + propto(0 + species|g, Pmat),
                  data = dat, REML = TRUE)
-  beta <- fixef(mod)$cond                 
-  V    <- diag(vcov(mod)$cond)         
-  reci <- confint(mod, parm = "theta_") 
-  list(beta = beta, var_w = V,
-       re_sd = reci[,"Estimate"],
-       resid_var = sigma(mod)^2)
 }
 
-# Fit across all trees
-fits <- purrr::map(phylo_mats, fit_one)
-m <- length(fits)
+# fit PGLMM model across all phylo correlation matrices
+fits <- purrr::map(p.mats, fit_model)
 
 ```
 
+Then using two packages `mice` and `mitml` we pool model estimates using Rubin’s rules. 
 
-For the random-effect SDs and the residual variance across trees [....]
+First we get the pooled `mice` fixed effect estimates:
 
 ```{r}
-#| eval: false
-#| echo: false
-# --- Rubin's rules for FIXED EFFECTS ---
-# Stack estimates and within-variances into matrices (rows = trees, cols = terms)
-terms <- names(fits[[1]]$beta)
-est_mat <- do.call(rbind, map(fits, ~ .x$beta[terms]))
-var_mat <- do.call(rbind, map(fits, ~ .x$var_w[terms]))
 
-qbar <- colMeans(est_mat)
-Ubar <- colMeans(var_mat)
-B    <- apply(est_mat, 2, var)
-Tvar <- Ubar + (1 + 1/m) * B
-se   <- sqrt(Tvar)
-ci_lo <- qbar - 1.96 * se
-ci_hi <- qbar + 1.96 * se
+### with mice package
+library(mice)
+summary(mice::pool(fits))
 
-rubin_fixed <- data.frame(term = terms, estimate = qbar, se = se,
-                          conf.low = ci_lo, conf.high = ci_hi,
-                          row.names = NULL)
-
-rubin_fixed
 ```
 
+By default, `mice::pool` uses the **Barnard–Rubin small-sample adjustment** (Barnard and Rubin, 1999) for degrees of freedom (df), which shrinks the `df` towards the complete-data df. Consequently, confidence intervals are slightly wider and p-values a little larger than under Rubin’s original (“old”) rule.
 
 
+Now we get the pooled `mitml` fixed effect estimates:
 
 ```{r}
-#| eval: false
-#| echo: false
-# --- Random-effect SDs -- CHECK THIS
-# Collect each theta SD by name across trees
-re_names <- names(fits[[1]]$re_sd)
-re_mat <- sapply(fits, function(x) x$re_sd[re_names])  # cols = trees
-re_mean   <- rowMeans(re_mat)
-re_median <- apply(re_mat, 1, median)
-re_q25    <- apply(re_mat, 1, quantile, probs = 0.25)
-re_q75    <- apply(re_mat, 1, quantile, probs = 0.75)
-
-re_summary <- data.frame(theta = re_names,
-                         mean_sd = re_mean,
-                         median_sd = re_median,
-                         q25 = re_q25, q75 = re_q75,
-                         row.names = NULL)
-
-# --- Residual variance -- CHECK THIS
-resids <- sapply(fits, `[[`, "resid_var")
-resid_summary <- data.frame(mean_resid_var   = mean(resids),
-                            median_resid_var = median(resids),
-                            q25 = quantile(resids, 0.25),
-                            q75 = quantile(resids, 0.75))
-
-# summaries
-re_summary
-resid_summary
+### with miml package
+library(mitml)
+fit.est <- mitml::testEstimates(fits, extra.pars=TRUE)
+head(fit.est$estimates)
 
 ```
+
+We obtain the same fixed effect estimates in both packages. However, `mitml` by default uses Rubin’s original degrees of freedom ("old rule"). This may be suitable if you deliberately want z-like inference.
+
+If you wish to use `mitml` and obtain the fixed effect estimates inference using the Barnard–Rubin small-sample adjustment for degrees of freedom, you can obtain use the residual degrees of freedom from the models as a proxy for the complete-data df:
+
+$$df.com \approx N−p$$
+
+where $N$ is the number of observations used and $p$ is the number of conditional fixed-effect coefficients. Because we are fitting the same model across different phylogenetic matrices, `df.com` will be the same for all fits.
+
+```{r}
+
+# residual degrees of freedom of models
+df.res <- vapply(fits, df.residual, numeric(1))
+df.com <- unique(df.res) ## this should be a unique number, if not check your code for the model 
+
+fit.est.com <- mitml::testEstimates(fits, extra.pars=TRUE, df.com=df.com)
+head(fit.est.com$estimates)
+
+```
+
+The output is then identical to the `mice` output.
+
+We can obtain the pooled variance estimates of the random effects directly with the `mitml` package
+
+```{r}
+
+data.frame(
+  sigma2.species = fit.est$extra.pars["Intercept~~Intercept|species",],
+  sigma2.phylo = fit.est$extra.pars["species1~~species1|g",],
+  sigma2.resid = fit.est$extra.pars["Residual~~Residual",]
+)
+
+```
+
+::: {.callout-aside}
+`mitml` provides estimates directly pooled on the variance scale.
+:::
+
 
 
 :::
@@ -2187,6 +2188,8 @@ ggplot(group_diff, aes(y = contrast, x = ratio)) +
 
 # References
 
+Barnard, J. and Rubin, D.B. (1999). Small sample degrees of freedom with multiple imputation. Biometrika, 86, 948-955.
+
 Brooks, M. E., Kristensen, K., van Benthem, K. J., Magnusson, A., Berg, C. W., Nielsen, A., Skaug, H. J.,Machler, M., & Bolker, B. M. (2017). glmmTMB balances speed and flexibility among packages for zero-inflated generalized linear mixed modeling. R Journal, 9 (2), 378–400. https://doi.org/10.32614/RJ-2017-066
 
 Dunn, P. O., Armenta, J. K., & Whittingham, L. A. (2015). Natural and sexual selection act on different axes of variation in avian plumage color. Science Advances, 1(2), e1400155. https://doi.org/10.1126/sciadv.1400155
@@ -2200,6 +2203,10 @@ org/web/packages/glmmTMB/vignettes/covstruct.html
 
 McGillycuddy, M. (2023). Model-Based Assessment of Treatment Effect in Multivariate Abundance Data
 [Doctoral dissertation, The University of New South Wales].
+
+Nakagawa, S., & De Villemereuil, P. (2019). A General Method for Simultaneously Accounting for Phylogenetic and Species Sampling Uncertainty via Rubin’s Rules in Comparative Analysis. Systematic Biology, 68(4), 632–641. https://doi.org/10.1093/sysbio/syy089
+
+Rubin, D. B. (1987). Multiple Imputation for Nonresponse in Surveys (1st ed.). John Wiley & Sons, Ltd. https://doi.org/10.1002/9780470316696
 
 Sanchez-Martinez, P., Martinez-Vilalta, J., Dexter, K. G., Segovia, R. A., & Mencuccini, M. (2020). Adaptation and coordinated evolution of plant hydraulic traits. Ecology Letters, 23 (11), 1599–1610. https://doi.org/10.1111/ele.13584
 
