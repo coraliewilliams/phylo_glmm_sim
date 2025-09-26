@@ -64,7 +64,7 @@ This webpage is organised in three sections:
 
 3. Finally, we present two case studies that apply these methods to ecological and evolutionary data, the first on bird colour traits and the second on plant traits (see [Case studies](#case-studies)).
 
-### Contact
+### Contact {#contact}
 
 For questions or error reports, contact Coralie Williams: 
 [coralie.williams@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or 
@@ -677,6 +677,11 @@ vc.slope$cond$g.1[1] #phylo slope variance
 ```
 
 
+::: callout-note
+**Important note:** currently the order matters when fitting a random slope with `propto`. The covariate for the random slope (here it is `x`) needs to be put first before the `species` factor variable.  If we were to try `propto(0 + species:x|g, phylo.mat)` this would return an error.
+:::
+
+
 ### What if there is a correlation between random intercept and slope?  
 
 `glmmTMB` cannot currently estimate correlated random intercepts and slopes when using the `propto` covariance structure. This means the intercept–slope covariance is fixed at zero and cannot be separated out. A common workaround is to **centre the covariate**, which reparameterises the model so that the intercept represents the expected response at the mean covariate value. This improves interpretability and typically stabilises slope variance estimates, though it does not recover any true intercept–slope correlation.  
@@ -737,8 +742,9 @@ make_phylo_mat <- function(tree, sp) {
 p.mats <- lapply(trees, make_phylo_mat, sp = sp.id)
 ```
 
-::: {.callout-aside}
-Important note: the row `rownames(C)` and column names `colnames(C)` of the phylogenetic correlation matrix must match `levels(dat$species)`, in the same order.
+
+::: callout-note
+**Important note:** the row `rownames(C)` and column names `colnames(C)` of the phylogenetic correlation matrix must match `levels(dat$species)`, in the same order to be able to fit with `glmmTMB`.
 :::
 
 
@@ -815,16 +821,11 @@ data.frame(
 
 ```
 
-::: {.callout-aside}
-`mitml` provides estimates directly pooled on the variance scale.
-:::
 
-
+> `mitml` provides estimates directly pooled on the variance scale.
 
 :::
 
-<!-- Extra things I want to add to webpage: -->
-<!-- -   Incorporating phylogenetic tree uncertainty using rubin's rule (with several candidate trees) -->
 
 
 # Bayesian MCMC model runtime {#runtimes}
@@ -1495,19 +1496,33 @@ b1_sex_diff
 
 
 ## plot pairwise differences between female and male total brightness
-b1_sex_diff |>
+b1_plot <- b1_sex_diff |>
   arrange(ratio) |>
   mutate(
-    body_region = factor(body_region, unique(body_region), ordered = TRUE)) |>
+    body_region = gsub("cov", "covert", body_region),  # replace "cov" with "covert"
+    body_region = factor(body_region, unique(body_region), ordered = TRUE)
+  ) |>
   ggplot(aes(y = body_region, x = ratio)) +
   geom_point(size = 3, colour = "#7B5EA9") + 
   geom_errorbar(aes(xmin = asymp.LCL, xmax = asymp.UCL), 
                 width = 0.2, colour = "#7B5EA9") +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
-  labs(y = "Body Region", x = "Female / Male Ratio", 
-       title = "Brightness") +
+  labs(
+    y = NULL, 
+    x = NULL, 
+    title = "Total brightness: female/male ratio"
+  ) +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 13),
+    axis.text.y = element_text(size = 13),
+    plot.title = element_text(size = 14, hjust = 0.5)
+  )
+b1_plot
+
+
+ggsave("b1_plot.png", plot = b1_plot, width = 7, height = 5)
 
 ```
 
@@ -2009,17 +2024,27 @@ group_diff <- contrast(emm_m6, method = "pairwise", reverse=TRUE) |>
 
 
 # Plot
-ggplot(group_diff, aes(y = contrast, x = ratio)) +
+kS_plot <- 
+  ggplot(group_diff, aes(y = contrast, x = ratio)) +
   geom_point(size = 3, colour = "#6BAF92") +
   geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), 
                 width = 0.2, colour = "#6BAF92") +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
   labs(y = NULL, x = "",
-       title = "kS contrast: Angiosperms vs Gymnosperms") +
+       title = "kS: Angiosperms/Gymnosperms ratio") +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 13),
+    axis.text.y = element_blank(), 
+    axis.ticks.y = element_blank(),  
+    plot.title = element_text(size = 14, hjust = 0.5)
+  )
+kS_plot
 
 
+ggsave("kS_plot.png", plot = kS_plot, width = 5, height = 3)
 
 ```
 
@@ -2105,7 +2130,7 @@ time_gamma <- system.time(
 ```
 
 
-Same models with MCMCglmm
+> Not done yet: same models with MCMCglmm and compare speed
 
 ```{r}
 
@@ -2133,11 +2158,11 @@ plot(res_gamma)
 ```
 
 
-Residual diagnostics are relatively similar, for both distributions so we keep the Gaussian log(response) model specification.
+Residual diagnostics are similar for both model specification, for demonstration we will keep the Gaussian log(response) to obtain the results. 
 
 #### Results
 
-Get phylogenetic signal from glmmTMB Gaussian model: 
+Get phylogenetic signal from glmmTMB Gamma model: 
 
 ```{r}
 #| output: true
@@ -2170,17 +2195,24 @@ group_diff <- contrast(emm_m9, method = "pairwise", reverse=TRUE) |>
 
 
 # Plot
-ggplot(group_diff, aes(y = contrast, x = ratio)) +
-  geom_point(size = 3, colour = "#6BAF92") +
+p50_plot <- ggplot(group_diff, aes(y = contrast, x = ratio)) +
+  geom_point(size = 3, colour = "#E49542") +
   geom_errorbar(aes(xmin = asymp.LCL, xmax = asymp.UCL), 
-                width = 0.2, colour = "#6BAF92") +
+                width = 0.2, colour = "#E49542") +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
   labs(y = NULL, x = "",
-       title = "kS contrast: Angiosperms vs Gymnosperms") +
+       title = "P50 contrast: Angiosperms/Gymnosperms ratio") +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(size = 13),
+    axis.text.y = element_blank(), 
+    axis.ticks.y = element_blank(),  
+    plot.title = element_text(size = 14, hjust = 0.5)
+  )
+p50_plot
 
-
+ggsave("P50_plot.png", plot = p50_plot, width = 5, height = 3)
 
 ```
 
@@ -2236,6 +2268,6 @@ details(si, summary = 'Current session info', open = FALSE)
 ```
 
 > **Note**  
-> This site may still be updated, and could be small mistakes.
+> This site may contain small mistakes. Please [contact Coralie Williams](#contact) to report any issues or errors. We aim to update this site regularly. 
 
-<a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Bird icon created by Smashicons - Flaticon </a>
+Bird icon created by <a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Smashicons - Flaticon</a>
