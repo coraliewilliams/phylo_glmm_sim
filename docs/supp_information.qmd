@@ -196,7 +196,7 @@ coefs_tmb <- as.data.frame(confint(model_glmmTMB, parm="beta_"))
 coefs_tmb
 ```
 
-The random effect component estimates are on the standard deviation scales fron the `confint` function, so we need to square them to get the variance estimates. We also compute the standard error and confidence intervals on the variance scale using the delta method.
+The random effect component estimates are on the standard deviation scales from the `confint` function, so we need to square them to get the variance estimates. We also compute the standard error and confidence intervals on the variance scale using the delta method.
 
 ```{r}
 re_tmb <- as.data.frame(confint(model_glmmTMB, parm="theta_")) # on standard deviation scale
@@ -641,7 +641,11 @@ When the non-phylogenetic component is removed, the estimate of the phylogenetic
 
 # Random slope
 
-> In some analyses, we may want to include a random slope for the phylogenetic effect. This allows us to ask whether the relationship between a covariate and the response varies among species in a way that reflects their shared evolutionary history. For example, we might be interested in whether species with different body weights show different slopes, or whether the effect of a treatment differs across species in a phylogenetically structured way.
+> In some analyses, we may want to include a random slope for the phylogenetic effect. This allows us to ask whether the relationship between a covariate and the response varies among species in a way that reflects their shared evolutionary history. For example, we might be interested in whether species with different body weights show different slopes in a phylogenetically structured way.
+
+::: callout-note
+**Important note:** fitting a random slope with the `propto` implementation is currently only supported for continuous variables, not yet for categorical variables.
+:::
 
 
 Given the above simulated dataset, we assume a set of trait measures $y_{ij}$ repeated measure (observation) $i$ and for each species $j$. The phylogenetic random slope model assuming independence  is specified as follows:
@@ -686,7 +690,7 @@ vc.slope$cond$g.1[1] #phylo slope variance
 
 `glmmTMB` cannot currently estimate correlated random intercepts and slopes when using the `propto` covariance structure. This means the intercept–slope covariance is fixed at zero and cannot be separated out. A common workaround is to **centre the covariate**, which reparameterises the model so that the intercept represents the expected response at the mean covariate value. This improves interpretability and typically stabilises slope variance estimates, though it does not recover any true intercept–slope correlation.  
 
-If the data contain little or no correlation, the variance estimates from `glmmTMB` with centred covariates will usually be close to those from packages that estimate the correlation. However, if the correlation is strong, `glmmTMB` may distort the partitioning of variance because the shared variation has no explicit covariance term.  
+When the data contain little or no correlation, variance estimates from `glmmTMB` with centred covariates are generally similar to those from packages that estimate the correlation. However, when the correlation is strong, `glmmTMB` may distort the partitioning of variance because the shared variation has no explicit covariance term.  
 
 For comparison, the random-effects structure in a model with correlated random intercepts and slopes is:  
 
@@ -2268,6 +2272,6 @@ details(si, summary = 'Current session info', open = FALSE)
 ```
 
 > **Note**  
-> This site may contain small mistakes. Please [contact Coralie Williams](#contact) to report any issues or errors. We aim to update this site regularly. 
+> This site may contain small mistakes. Please contact [Coralie Williams](#contact) to report any issues or errors. We aim to update this site regularly. 
 
 Bird icon created by <a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Smashicons - Flaticon</a>
