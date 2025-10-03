@@ -23,6 +23,8 @@ res2.dat <- dat
 
 
 # Check convergence %
+#table(res1.dat$convergence, res1.dat$model)
+#table(res2.dat$convergence, res2.dat$model)
 #table(res1.dat$model, res1.dat$convergence)/192000*100
 #table(res2.dat$model, res2.dat$convergence)/24000*100
 
@@ -56,18 +58,18 @@ res2.dat_conv_summary <- tab.conv |>
   mutate(model = factor(Var2, levels=c("brms", "MCMCglmm", "INLA", "glmmTMB", "phyr"))) |> 
   arrange(model)
 
-# # merge convergence info
-# conv.tab <- full_join(res1.dat_conv_summary, res2.dat_conv_summary, by = "model") %>%
-#   rename(Package = model) %>%
-#   select(Package, `25`, `50`, `100`, `200`, `400`, `800`)
+# merge convergence info
+conv.tab <- full_join(res1.dat_conv_summary, res2.dat_conv_summary, by = "model") %>%
+  rename(Package = model) %>%
+  select(Package, `25`, `50`, `100`, `200`, `400`, `800`)
 
 
-# # Create summary tables of convergence % for Supp. information
-# print(xtable(conv.tab, digits = 1),
-#       include.rownames = FALSE)
-# check ESS
-#table(res1.dat$ESS>400, res1.dat$model)
-#table(res2.dat$ESS>400, res2.dat$model)
+# Create summary tables of convergence % for Supp. information
+print(xtable(conv.tab, digits = 1),
+      include.rownames = FALSE)
+#check ESS
+table(res1.dat$ESS>400, res1.dat$model)
+table(res2.dat$ESS>400, res2.dat$model)
 
 
 
@@ -97,37 +99,35 @@ res2 <- res2.dat |>
 #table(res1$ESS<400, res1$model)
 #table(res2$ESS<400, res2$model)
 
-table(res1$species_size)/5/64000
-table(res2$species_size)/3/8000
-
+#### Get number of simulation per package (counts + percentages)
 table(res1$species_size)
 table(res2$species_size)
 
-# assess model errors
-table(is.na(res1$model_error), res1$model)
-# assess model warnings
-table(is.na(res1.dat$model_warning), res1.dat$model)
-table(is.na(res2.dat$model_warning), res2.dat$model)
+table(res1$species_size)/5/64000
+table(res2$species_size)/3/8000
 
 
-# all INLA models have the same warning
-table(res1$model_warning[which(res1$model=="INLA")])
-table(res2$model_warning[which(res1$model=="INLA")])
-
-
-table(res1$s2_sp > 4, res1$model)
-table(res1$s2_phylo > 4, res1$model)
-table(res1$s2_resid > 4, res1$model)
-
-table(res1$s2_sp_bias > 4, res1$model)
-table(res1$s2_phylo_bias > 4, res1$model)
-table(res1$s2_resid_bias > 4, res1$model)
-
-
-hist(res1$s2_phylo_bias[which(res1$model=="INLA")], breaks=100)
-hist(res1$s2_phylo_bias[which(res1$model=="INLA" & res1$s2_phylo_bias < 100)], breaks=100)
-
-
+# # assess model errors
+# table(is.na(res1$model_error), res1$model)
+# # assess model warnings
+# table(is.na(res1.dat$model_warning), res1.dat$model)
+# table(is.na(res2.dat$model_warning), res2.dat$model)
+# 
+# # all INLA models have the same warning
+# table(res1$model_warning[which(res1$model=="INLA")])
+# table(res2$model_warning[which(res1$model=="INLA")])
+# 
+# table(res1$s2_sp > 4, res1$model)
+# table(res1$s2_phylo > 4, res1$model)
+# table(res1$s2_resid > 4, res1$model)
+# 
+# table(res1$s2_sp_bias > 4, res1$model)
+# table(res1$s2_phylo_bias > 4, res1$model)
+# table(res1$s2_resid_bias > 4, res1$model)
+# 
+# 
+# hist(res1$s2_phylo_bias[which(res1$model=="INLA")], breaks=100)
+# hist(res1$s2_phylo_bias[which(res1$model=="INLA" & res1$s2_phylo_bias < 100)], breaks=100)
 
 
 
@@ -243,6 +243,23 @@ res2$nrep <- factor(res2$nrep,
                   labels=c("5 reps", "10 reps", "30 reps", "unbalanced"))
 
 
+## derive sample variance of estimates (for MCSE)
+res1.sample_var <- res1 |> 
+  group_by(model, species_size) |>
+  summarise(mean_mu = mean(mu),
+            mu_S2 = sum((mu - mean(mu))^2) / (n() - 1),
+            s2.s_S2 = sum((s2_sp - mean(s2_sp))^2) / (n() - 1),
+            s2.p_S2 = sum((s2_phylo - mean(s2_phylo))^2) / (n() - 1)) |> 
+  ungroup()
+
+
+res2.sample_var <- res2 |> 
+  group_by(model, species_size) |>
+  summarise(mean_mu = mean(mu),
+            mu_S2 = sum((mu - mean(mu))^2) / (n() - 1),
+            s2.s_S2 = sum((s2_sp - mean(s2_sp))^2) / (n() - 1),
+            s2.p_S2 = sum((s2_phylo - mean(s2_phylo))^2) / (n() - 1)) |> 
+  ungroup()
 
 
 
@@ -277,7 +294,7 @@ res2$model <- factor(res2$model,
 
 
 
-################### 4. Plots for main text #############################
+################### 4. Plots/tables - runtime #############################
 
 
 
@@ -300,7 +317,7 @@ runtime_plot_set1 <- res1 |>
   theme_bw() +
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_log10runtime_set1.png", width = 10, height = 6)
+#ggsave(filename = "output/Figure_log10runtime_set1.png", width = 10, height = 6)
 
 
 
@@ -321,7 +338,7 @@ runtime_plot_set2 <- res2 |>
   #theme(legend.position="bottom")+
   theme(legend.position="none")
 
-ggsave(filename = "output/Figure_log10runtime_set1.png", width = 10, height = 6)
+#ggsave(filename = "output/Figure_log10runtime_set1.png", width = 10, height = 6)
 
 
 
@@ -338,19 +355,9 @@ ggsave(filename = "output/Figures/Figure_runtime_all.png", width = 10, height = 
 
 
 
-#### Fig. 2: variance components
+###----- For supp. information ---
 
-
-
-
-
-
-
-################# 5. Plots/tables for supp. info ##########################
-
-
-### 1. Run time -------------------------------------
-
+##### Tables 
 # Get mean values per species size and package
 mean_runtime <- rbind(res1, res2) |> 
   group_by(species_size, model) |> 
@@ -368,14 +375,72 @@ xtable(tab_runtime, digits=2,
 
 
 
+###### Plot Log-log runtime vs species number 
+# To see which packages take exponential time to compute with larger species number
+runtime_log_plot <- bind_rows(res1, res2) |>
+  mutate(model = factor(trimws(model))) |>
+  ggplot(aes(x = species_size, y = run_time,
+             fill = model, colour = model)) +
+  geom_boxplot(aes(group = interaction(model, species_size)),
+               width = 0.1, position = "identity", outlier.shape = NA) +
+  scale_x_log10(breaks = c(25, 50, 100, 200, 400, 800),
+                labels = c("25","50","100","200","400","800")) +
+  scale_y_log10(breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000),
+                labels = c("0.1","1","10","100","1000","10000","100000")) +
+  geom_smooth(
+    aes(group = model, colour = model),
+    method = "lm", formula = y ~ x,
+    se = FALSE, linetype = "dashed", linewidth = 0.9
+  ) +
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"),
+  labs(x = "Species number", y = "Run time (seconds)") +
+  theme_bw()  
+  # # linear (grey dashed, shifted down a bit)
+  # geom_smooth(
+  #   mapping = aes(x = species_size, y = run_time/170),
+  #   method = "lm", formula = y ~ x,
+  #   se = FALSE, colour = "grey40", linetype = "dashed", linewidth = 0.9,
+  #   inherit.aes = FALSE
+  # ) +
+  # # quadratic (grey solid, shifted further down)
+  # geom_smooth(
+  #   mapping = aes(x = species_size, y = run_time*), 
+  #   method = "lm", formula = y ~ poly(x, 2),
+  #   se = FALSE, colour = "grey40", linewidth = 0.9,
+  #   inherit.aes = FALSE
+  # )
+#+ theme(legend.position = "none")
 
-### 2. Fixed effect estimate -----------------------------------
+ggsave(filename = "output/Figure_log_runtime_perspecies.png", width = 10, height = 6)
 
-# derive the coverage dataset
+
+log10_slope_summary <- bind_rows(res1, res2) |>
+  mutate(model = factor(trimws(model))) |>
+  group_by(model) |>
+  do(broom::tidy(lm(log10(run_time) ~ log10(species_size), data = .), conf.int = TRUE)) |>
+  filter(term == "log10(species_size)") |>
+  select(model, slope = estimate, conf.low, conf.high, p.value)
+
+log10_slope_summary
+
+
+
+
+################# 5. Plots/tables - fixed effects ##########################
+
+
+# derive the coverage dataset for b1 fixed effect coeff.
 cov.dat.b1 <- res1 |> 
   group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
   summarise(cov_prop = mean(cov_b1, na.rm = TRUE)) |> 
   ungroup()
+
+cov.dat2.b1 <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(cov_prop = mean(cov_b1, na.rm = TRUE)) |> 
+  ungroup()
+
 
 
 options(digits = 4, scipen = 5) # switch back to display multiple digits
@@ -528,9 +593,10 @@ ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 9, height = 
 
 
 
-### 3. Non-phylo variance estimate -----------------------------------
+################# 6. Plots/tables - variance components ##########################
 
 
+### 1. Non-phylo variance estimate ---
 
 options(digits = 3, scipen = 5)
 # bias of variance estimate
@@ -604,7 +670,7 @@ s2.sp2_plot_rmse <- res1 |>
 
 
 
-### 4. Phylo variance estimate -----------------------------------
+### 2. Phylo variance estimate --
 
 
 options(digits = 3, scipen = 5)
@@ -680,7 +746,7 @@ s2.p2_plot_rmse <- res1 |>
 
 
 
-### 5. Residual variance estimate -----------------------------------
+### 3. Residual variance estimate ---
 
 
 
@@ -754,18 +820,38 @@ ggsave(filename = "output/Figure_variance_estimates_suppinfo.png", width = 10, h
 
 
 
-######### Derive Monte Carlo Standard Errors (MCSE) of simulations ############
+######### 7. Derive Monte Carlo Standard Errors (MCSE) of simulations ############
 
 
-## number of simulation iterations of filtering results
-nsim1 <- nrow(res1)/5
-nsim2 <- nrow(res2)/3
+## 
+sample_var <- bind_rows(res1.sample_var, res2.sample_var)
+
+
+## derive the bias Monte Carlo SE (per model, method and condition) for overall mean
+mu_mcse <- sample_var |> 
+  group_by(model, species_size) |> 
+  summarise(mean_mu = mean_mu,  #get mean estimate
+            mu_mcse = round(sqrt(mu_S2/n()),5)) |> 
+  arrange(species_size) 
+print(xtable(mu_mcse, digits=c(0,2,2,2,4)), include.rownames=FALSE) ##save table for supporting information
 
 
 
+## derive the coverage Monte Carlo SE (per model, method and condition)
+cov.dat <- bind_rows(cov.dat.b1, cov.dat2.b1)
+cov_mcse <- cov.dat |> 
+  group_by(model, species_size) |> 
+  summarise(mean_cov = mean(cov_prop),  # Compute the mean coverage
+            cov_mcse = round(sqrt((mean_cov * (1 - mean_cov)) / n()), 5)) |>  # Apply MCSE formula
+  arrange(species_size) 
+print(xtable(cov_mcse, digits=c(0,2,2,3,4)), include.rownames=FALSE) ##save table for supporting information
 
-# MCSE for b1 estimate
-res1$mcse_b1 <- res1$rmse_b1 / sqrt(64000)
 
-
+## derive the bias Monte Carlo SE (per model, method and condition) for overall mean
+s2_mcse <- sample_var |> 
+  group_by(model, species_size) |> 
+  summarise(s2.s_mcse = round(sqrt(s2.s_S2/n()),5),
+            s2.p_mcse = round(sqrt(s2.p_S2/n()),5)) |> 
+  arrange(species_size) 
+print(xtable(s2_mcse, digits=c(0,2,2,2,4)), include.rownames=FALSE) ##save table for supporting information
 
