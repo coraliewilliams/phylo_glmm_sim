@@ -322,8 +322,9 @@ runtime_log_plot <- bind_rows(res1, res2) |>
              fill = model, colour = model)) +
   geom_boxplot(aes(group = interaction(model, species_size)),
                width = 0.1, position = "identity", outlier.shape = NA) +
-  scale_x_log10(breaks = c(25, 50, 100, 200, 400, 800),
-                labels = c("25","50","100","200","400","800")) +
+  scale_x_log10()+
+#scale_x_log10(breaks = c(25, 50, 100, 200, 400, 800)) +
+  #  labels = c("25","50","100","200","400","800")
   scale_y_log10(breaks = c(0.1, 1, 10, 100, 1000, 10000, 100000),
                 labels = c("0.1","1","10","100","1000","10000","100000")) +
   geom_smooth(
@@ -610,5 +611,5 @@ s2_mcse <- sample_var |>
   group_by(model, species_size) |> 
   summarise(s2.p_mcse = round(sqrt(s2.p_S2/n()),5)) |> 
   arrange(species_size) 
-print(xtable(s2_mcse, digits=c(0,2,2,2,4)), include.rownames=FALSE) ##save table for supporting information
+print(xtable(s2_mcse, digits=c(0,2,2,4)), include.rownames=FALSE) ##save table for supporting information
 

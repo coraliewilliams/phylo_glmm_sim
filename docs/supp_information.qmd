@@ -1953,7 +1953,7 @@ m6.mcmc.conv <- heidel.diag(m6.mcmc$Sol[,1])$pvalue > 0.05 # check convergence o
 #| eval: FALSE
 #| echo: FALSE
 # Get model info  ---------------------------
-# check whether model has postive definite hessian
+# check whether model has to be positive definite hessian
 
 ks_output <- data.frame(
   package = c("glmmTMB", "MCMCglmm", "glmmTMB"),
@@ -2134,11 +2134,6 @@ time_gamma <- system.time(
 ```
 
 
-> Not done yet: same models with MCMCglmm and compare speed
-
-```{r}
-
-```
 
 #### Diagnostic plots
 
