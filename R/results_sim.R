@@ -5,7 +5,7 @@
 
 library(ggplot2);library(devtools);library(cowplot);library(ggdark);theme_set(dark_theme_bw())
 library(ggdist);library(tidyverse);library(dplyr);library(patchwork); library(scales);
-library(latex2exp); library(xtable)
+library(latex2exp); library(xtable); library(grid)
 
 #---
 # load results set 1a (repeated measures)
@@ -107,6 +107,8 @@ table(res1$species_size)/5/64000
 table(res2$species_size)/3/8000
 
 
+#table(res1$species_size, res1$nrep)/5/16000
+
 # # assess model errors
 # table(is.na(res1$model_error), res1$model)
 # # assess model warnings
@@ -131,139 +133,7 @@ table(res2$species_size)/3/8000
 
 
 
-
-
-################### 2. Derive variables #############################
-
-# bias of sigma2.p estimate
-res1$s2_phylo_bias <- res1$s2_phylo - res1$sigma2.p
-res2$s2_phylo_bias <- res2$s2_phylo - res2$sigma2.p
-
-# bias of sigma2.s estimate
-res1$s2_sp_bias <- res1$s2_sp - res1$sigma2.s
-res2$s2_sp_bias <- res2$s2_sp - res2$sigma2.s
-
-# bias of sigma2.e estimate
-res1$s2_resid_bias <- res1$s2_resid - res1$sigma2.e
-res2$s2_resid_bias <- res2$s2_resid - res2$sigma2.e
-
-
-
-# RMSE b1 estimate
-res1$rmse_b1 <- sqrt((res1$mu - res1$b1)^2)
-res2$rmse_b1 <- sqrt((res2$mu - res2$b1)^2)
-
-# RMSE sigma2.p estimate
-res1$rmse_s2_phylo <- sqrt((res1$sigma2.p - res1$s2_phylo)^2)
-res2$rmse_s2_phylo <- sqrt((res2$sigma2.p - res2$s2_phylo)^2)
-
-# RMSE sigma2.s estimate
-res1$rmse_s2_sp <- sqrt((res1$sigma2.s - res1$s2_sp)^2)
-res2$rmse_s2_sp <- sqrt((res2$sigma2.s - res2$s2_sp)^2)
-
-# RMSE sigma2.e estimate
-res1$rmse_s2_resid <- sqrt((res1$sigma2.e - res1$s2_resid)^2)
-res2$rmse_s2_resid <- sqrt((res2$sigma2.e - res2$s2_resid)^2)
-
-
-# scaled RMSE b1 estimate
-res1$rmse_b1_scaled <- sqrt((res1$mu/res1$b1 - 1)^2)
-res2$rmse_b1_scaled <- sqrt((res2$mu/res2$b1 - 1)^2)
-
-# scaled RMSE sigma2.p estimate
-res1$rmse_s2_phylo_scaled <- sqrt((res1$sigma2.p/res1$s2_phylo - 1)^2)
-res2$rmse_s2_phylo_scaled <- sqrt((res2$sigma2.p/res2$s2_phylo - 1)^2)
-
-# scaled RMSE sigma2.s estimate
-res1$rmse_s2_sp_scaled <- sqrt((res1$sigma2.s/res1$s2_sp - 1)^2)
-res2$rmse_s2_sp_scaled <- sqrt((res2$sigma2.s/res2$s2_sp - 1)^2)
-
-# scaled RMSE sigma2.e estimate
-res1$rmse_s2_resid_scaled <- sqrt((res1$sigma2.e/res1$s2_resid - 1)^2)
-res2$rmse_s2_resid_scaled <- sqrt((res2$sigma2.e/res2$s2_resid - 1)^2)
-
-
-
-# coverage b1 estimate
-res1$cov_b1 <- res1$b1 > res1$mu_ci_low & res1$b1 < res1$mu_ci_high
-res2$cov_b1 <- res2$b1 > res2$mu_ci_low & res2$b1 < res2$mu_ci_high
-
-# coverage sigma2.p estimate
-res1$cov_sigma2.p <- res1$sigma2.p > res1$s2_phylo_ci_low & res1$sigma2.p < res1$s2_phylo_ci_high
-res2$cov_sigma2.p <- res2$sigma2.p > res2$s2_phylo_ci_low & res2$sigma2.p < res2$s2_phylo_ci_high
-
-# coverage sigma2.s estimate
-res1$cov_sigma2.s <- res1$sigma2.s > res1$s2_sp_ci_low & res1$sigma2.s < res1$s2_sp_ci_high
-res2$cov_sigma2.s <- res2$sigma2.s > res2$s2_sp_ci_low & res2$sigma2.s < res2$s2_sp_ci_high
-
-# coverage sigma2.e estimate
-res1$cov_sigma2.e <- res1$sigma2.e > res1$s2_resid_ci_low & res1$sigma2.e < res1$s2_resid_ci_high
-res2$cov_sigma2.e <- res2$sigma2.e > res2$s2_resid_ci_low & res2$sigma2.e < res2$s2_resid_ci_high
-
-
-# create new label nreps based on sample_size
-res1 <- res1 |> 
-  mutate(nrep = case_when(
-    sample_size == 125 & species_size == 25 ~ "5",
-    sample_size == 250 & species_size == 25 ~ "10",
-    sample_size == 100 & species_size == 25 ~ "30",
-    sample_size == 250 & species_size == 50 ~ "5",
-    sample_size == 500 & species_size == 50 ~ "10",
-    sample_size == 1500 & species_size == 50 ~ "30",
-    sample_size == 500 & species_size == 100 ~ "5",
-    sample_size == 1000 & species_size == 100 ~ "10",
-    sample_size == 3000 & species_size == 100 ~ "30",
-    .default = "unbalanced"
-  ))
-
-#table(res1$nrep)
-
-res2 <- res2 |> 
-  mutate(nrep = case_when(
-    sample_size == 1000 & species_size == 200 ~ "5",
-    sample_size == 2000 & species_size == 200 ~ "10",
-    sample_size == 6000 & species_size == 200 ~ "30",
-    sample_size == 2000 & species_size == 400 ~ "5",
-    sample_size == 4000 & species_size == 400 ~ "10",
-    sample_size == 1200 & species_size == 400 ~ "30",
-    sample_size == 4000 & species_size == 800 ~ "5",
-    sample_size == 8000 & species_size == 800 ~ "10",
-    sample_size == 24000 & species_size == 800 ~ "30",
-    .default = "unbalanced"
-  ))
-#table(res2$nrep)
-
-# re-order factor levels of nrep
-res1$nrep <- factor(res1$nrep, 
-                  levels=c("5", "10", "30", "unbalanced"),
-                  labels=c("5 reps", "10 reps", "30 reps", "unbalanced"))
-
-res2$nrep <- factor(res2$nrep,
-                  levels=c("5", "10", "30", "unbalanced"),
-                  labels=c("5 reps", "10 reps", "30 reps", "unbalanced"))
-
-
-## derive sample variance of estimates (for MCSE)
-res1.sample_var <- res1 |> 
-  group_by(model, species_size) |>
-  summarise(mean_mu = mean(mu),
-            mu_S2 = sum((mu - mean(mu))^2) / (n() - 1),
-            s2.s_S2 = sum((s2_sp - mean(s2_sp))^2) / (n() - 1),
-            s2.p_S2 = sum((s2_phylo - mean(s2_phylo))^2) / (n() - 1)) |> 
-  ungroup()
-
-
-res2.sample_var <- res2 |> 
-  group_by(model, species_size) |>
-  summarise(mean_mu = mean(mu),
-            mu_S2 = sum((mu - mean(mu))^2) / (n() - 1),
-            s2.s_S2 = sum((s2_sp - mean(s2_sp))^2) / (n() - 1),
-            s2.p_S2 = sum((s2_phylo - mean(s2_phylo))^2) / (n() - 1)) |> 
-  ungroup()
-
-
-
-################## 3. Formatting ############################
+################## 2. Formatting ############################
 
 #------ labels for plots
 
@@ -288,6 +158,195 @@ res1$model <- factor(res1$model,
 
 res2$model <- factor(res2$model, 
                      levels=c("MCMCglmm", "INLA", "glmmTMB"))
+
+
+
+# create new label nreps based on sample_size
+res1 <- res1 |> 
+  mutate(nrep = case_when(
+    sample_size == 125 & species_size == 25 ~ "5",
+    sample_size == 250 & species_size == 25 ~ "10",
+    sample_size == 750 & species_size == 25 ~ "30",
+    sample_size == 250 & species_size == 50 ~ "5",
+    sample_size == 500 & species_size == 50 ~ "10",
+    sample_size == 1500 & species_size == 50 ~ "30",
+    sample_size == 500 & species_size == 100 ~ "5",
+    sample_size == 1000 & species_size == 100 ~ "10",
+    sample_size == 3000 & species_size == 100 ~ "30",
+    .default = "unbalanced"
+  ))
+
+#table(res1$nrep)
+
+res2 <- res2 |> 
+  mutate(nrep = case_when(
+    sample_size == 1000 & species_size == 200 ~ "5",
+    sample_size == 2000 & species_size == 200 ~ "10",
+    sample_size == 6000 & species_size == 200 ~ "30",
+    sample_size == 2000 & species_size == 400 ~ "5",
+    sample_size == 4000 & species_size == 400 ~ "10",
+    sample_size == 12000 & species_size == 400 ~ "30",
+    sample_size == 4000 & species_size == 800 ~ "5",
+    sample_size == 8000 & species_size == 800 ~ "10",
+    sample_size == 24000 & species_size == 800 ~ "30",
+    .default = "unbalanced"
+  ))
+#table(res2$nrep)
+
+
+# re-order factor levels of nrep
+res1$nrep <- factor(res1$nrep, 
+                    levels=c("5", "10", "30", "unbalanced"),
+                    labels=c("5 reps", "10 reps", "30 reps", "unbalanced"))
+
+res2$nrep <- factor(res2$nrep,
+                    levels=c("5", "10", "30", "unbalanced"),
+                    labels=c("5 reps", "10 reps", "30 reps", "unbalanced"))
+
+
+
+
+
+
+
+
+################### 3. Derive sim estimates #############################
+
+### all sim studies had true b1=1.5
+
+# bias datasets for b1 fixed effect coeff.
+bias.dat.b1 <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(bias = mean(mu) - 1.5) |> 
+  ungroup()
+
+bias.dat2.b1 <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(bias = mean(mu) - 1.5) |> 
+  ungroup()
+
+
+# RMSE datasets for b1 fixed effect coeff.
+rmse.dat.b1 <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((mu - b1)^2))) |> 
+  ungroup()
+
+rmse.dat2.b1 <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((mu - b1)^2))) |> 
+  ungroup()
+
+
+# CI width for b1 fixed effect coeff.
+ciw.dat.b1 <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(ci_width = mean(mu_ci_width)) |> 
+  ungroup()
+
+ciw.dat2.b1 <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(ci_width = mean(mu_ci_width)) |> 
+  ungroup()
+
+
+# RMSE sigma2.p estimate
+rmse.dat.s2p <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((s2_phylo - sigma2.p)^2))) |> 
+  ungroup()
+
+rmse.dat2.s2p <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((s2_phylo - sigma2.p)^2))) |> 
+  ungroup()
+
+
+
+# RMSE sigma2.s estimate
+rmse.dat.s2sp <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((s2_sp - sigma2.s)^2))) |> 
+  ungroup()
+
+rmse.dat2.s2sp <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((s2_sp - sigma2.s)^2))) |> 
+  ungroup()
+
+
+
+
+# RMSE sigma2.e estimate
+rmse.dat.s2e <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((s2_resid - sigma2.e)^2))) |> 
+  ungroup()
+
+rmse.dat2.s2e <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(rmse = sqrt(mean((s2_resid - sigma2.e)^2))) |> 
+  ungroup()
+
+
+# coverage b1 estimate
+res1$cov_b1 <- res1$b1 > res1$mu_ci_low & res1$b1 < res1$mu_ci_high
+res2$cov_b1 <- res2$b1 > res2$mu_ci_low & res2$b1 < res2$mu_ci_high
+
+# coverage sigma2.p estimate
+res1$cov_sigma2.p <- res1$sigma2.p > res1$s2_phylo_ci_low & res1$sigma2.p < res1$s2_phylo_ci_high
+res2$cov_sigma2.p <- res2$sigma2.p > res2$s2_phylo_ci_low & res2$sigma2.p < res2$s2_phylo_ci_high
+
+# coverage sigma2.s estimate
+res1$cov_sigma2.s <- res1$sigma2.s > res1$s2_sp_ci_low & res1$sigma2.s < res1$s2_sp_ci_high
+res2$cov_sigma2.s <- res2$sigma2.s > res2$s2_sp_ci_low & res2$sigma2.s < res2$s2_sp_ci_high
+
+# coverage sigma2.e estimate
+res1$cov_sigma2.e <- res1$sigma2.e > res1$s2_resid_ci_low & res1$sigma2.e < res1$s2_resid_ci_high
+res2$cov_sigma2.e <- res2$sigma2.e > res2$s2_resid_ci_low & res2$sigma2.e < res2$s2_resid_ci_high
+
+
+# derive the coverage dataset for b1 fixed effect coeff.
+cov.dat.b1 <- res1 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(cov_prop = mean(cov_b1, na.rm = TRUE)) |> 
+  ungroup()
+
+cov.dat2.b1 <- res2 |> 
+  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
+  summarise(cov_prop = mean(cov_b1, na.rm = TRUE)) |> 
+  ungroup()
+
+
+
+## derive sample variance of estimates (for MCSE)
+res1.sample_var <- res1 |> 
+  group_by(model, species_size) |>
+  summarise(bias_b1 = mean(mu) - 1.5,
+            rmse_b1 = sqrt(mean((mu - 1.5)^2)),
+            b1_S2 = sum((mu - mean(mu))^2) / (n() - 1),
+            s2.s_rmse = sqrt(mean((s2_sp - sigma2.s)^2)), 
+            s2.p_rmse = sqrt(mean((s2_phylo - sigma2.p)^2)), 
+            s2.e_rmse = sqrt(mean((s2_resid - sigma2.e)^2)), 
+            s2.s_S2 = sum((s2_sp - mean(s2_sp))^2) / (n() - 1),
+            s2.p_S2 = sum((s2_phylo - mean(s2_phylo))^2) / (n() - 1),
+            s2.e_S2 = sum((s2_resid - mean(s2_resid))^2) / (n() - 1)) |> 
+  ungroup()
+
+
+res2.sample_var <- res2 |> 
+  group_by(model, species_size) |>
+  summarise(bias_b1 = mean(mu) - 1.5,
+            rmse_b1 = sqrt(mean((mu - 1.5)^2)),
+            b1_S2 = sum((mu - mean(mu))^2) / (n() - 1),
+            s2.s_rmse = sqrt(mean((s2_sp - sigma2.s)^2)), 
+            s2.p_rmse = sqrt(mean((s2_phylo - sigma2.p)^2)), 
+            s2.e_rmse = sqrt(mean((s2_resid - sigma2.e)^2)), 
+            s2.s_S2 = sum((s2_sp - mean(s2_sp))^2) / (n() - 1),
+            s2.p_S2 = sum((s2_phylo - mean(s2_phylo))^2) / (n() - 1),
+            s2.e_S2 = sum((s2_resid - mean(s2_resid))^2) / (n() - 1)) |> 
+  ungroup()
+
 
 
 
@@ -393,7 +452,7 @@ runtime_log_plot <- bind_rows(res1, res2) |>
     se = FALSE, linetype = "dashed", linewidth = 0.9
   ) +
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"),
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"))) +
   labs(x = "Species number", y = "Run time (seconds)") +
   theme_bw()  
   # # linear (grey dashed, shifted down a bit)
@@ -430,46 +489,51 @@ log10_slope_summary
 ################# 5. Plots/tables - fixed effects ##########################
 
 
-# derive the coverage dataset for b1 fixed effect coeff.
-cov.dat.b1 <- res1 |> 
-  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
-  summarise(cov_prop = mean(cov_b1, na.rm = TRUE)) |> 
-  ungroup()
-
-cov.dat2.b1 <- res2 |> 
-  group_by(model, species_size, species_lab, nrep, sigma2.s, sigma2.p, sigma2.e) |> 
-  summarise(cov_prop = mean(cov_b1, na.rm = TRUE)) |> 
-  ungroup()
-
-
 
 options(digits = 4, scipen = 5) # switch back to display multiple digits
 
-# bias of b1 ---
-b1_bias_plot <- res1 |> 
+# First: use N_species as facet --
+
+
+# distribution of b1 ---
+b1_plot <- res1 |> 
   ggplot(aes(x=factor(model), y=mu, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("Bias $\\hat{\\beta_1}$"),x="Package", y = TeX("Bias $\\hat{\\beta_1}$"))+
+  labs(title=TeX("$\\hat{\\beta_1}$ distribution"),x="Package", y = TeX("$\\hat{\\beta_1}$"))+
   #scale_y_continuous(breaks=seq(0, 3, 0.5), limits=c(0, 3)) +
   geom_hline(yintercept=1.5, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
 
+# bias of b1 ---
+b1_bias_plot <- bias.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=bias, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("Bias $\\hat{\\beta_1}$"),x="Package", y = TeX("Bias $\\hat{\\beta_1}$"))+
+  #scale_y_continuous(breaks=seq(0, 3, 0.5), limits=c(0, 3)) +
+  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
 
 # RMSE ---
-b1_rmse_plot <- res1 |> 
-  ggplot(aes(x=factor(model), y=rmse_b1, fill=model, color=model)) + 
+b1_rmse_plot <- rmse.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   labs(title=TeX("RMSE $\\hat{\\beta_1}$"),x="Package", y = TeX("RMSE $\\hat{\\beta_1}$"))+
   facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  facet_wrap(~nrep, ncol=4)+
+  #facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
@@ -490,14 +554,14 @@ b1_rmse_scaled_plot <- res1 |>
 
 
 # CI width ---
-b1_ci_width_plot <- res1 |> 
-  ggplot(aes(x=factor(model), y=mu_ci_width, fill=model, color=model)) + 
+b1_ci_width_plot <- ciw.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=ci_width, fill=model, color=model)) + 
   geom_boxplot(width=0.4)+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   labs(title=TeX("95% confidence interval width $\\hat{\\beta_1}$"),x="Package", y = TeX("$\\hat{\\beta_1}$ CI width"))+
   facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+ ## alternatively I can use nrep here --- discuss!
-  facet_wrap(~nrep, ncol=4)+
+  #facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
@@ -512,12 +576,100 @@ b1_cov_plot <- cov.dat.b1 |>
   scale_y_continuous(breaks=seq(0.9, 1, 0.01), limits=c(0.9, 1)) +
   labs(title=TeX("Coverage $\\hat{\\beta_1}$"),x="Package", y = TeX("Coverage $\\hat{\\beta_1}$"))+
   facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  facet_wrap(~nrep, ncol=4)+
+  #facet_wrap(~nrep, ncol=4)+
   geom_boxplot(width=0.4)+
   geom_hline(yintercept=0.95, colour="darkgray", linewidth=0.6)+ 
   theme_bw() +
   theme(legend.position="none")
 
+
+
+# combine plots
+fig_b1 <- b1_rmse_plot + 
+  b1_ci_width_plot + 
+  b1_cov_plot + 
+  plot_layout(ncol=1, guides = "collect") +
+  plot_annotation(tag_levels='A',
+                  theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
+
+
+ggsave(filename = "output/Figure_b1_estimate_Nspecies.png", width = 9, height = 11)
+
+
+
+
+# Now use n_rep as the facet --
+
+
+# distribution of b1 ---
+b1_plot <- res1 |> 
+  ggplot(aes(x=factor(model), y=mu, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\hat{\\beta_1}$ distribution"),x="Package", y = TeX("$\\hat{\\beta_1}$"))+
+  #scale_y_continuous(breaks=seq(0, 3, 0.5), limits=c(0, 3)) +
+  geom_hline(yintercept=1.5, colour="darkgray", linewidth=0.5)+
+  facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# bias of b1 ---
+b1_bias_plot <- bias.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=bias, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("Bias $\\hat{\\beta_1}$"),x="Package", y = TeX("Bias $\\hat{\\beta_1}$"))+
+  #scale_y_continuous(breaks=seq(0, 3, 0.5), limits=c(0, 3)) +
+  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
+  facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# RMSE ---
+b1_rmse_plot <- rmse.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("RMSE $\\hat{\\beta_1}$"),x="Package", y = TeX("RMSE $\\hat{\\beta_1}$"))+
+  facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# CI width ---
+b1_ci_width_plot <- ciw.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=ci_width, fill=model, color=model)) + 
+  geom_boxplot(width=0.4)+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("95% confidence interval width $\\hat{\\beta_1}$"),x="Package", y = TeX("$\\hat{\\beta_1}$ CI width"))+
+  facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# coverage ---
+b1_cov_plot <- cov.dat.b1 |> 
+  ggplot(aes(x=factor(model), y=cov_prop, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  scale_y_continuous(breaks=seq(0.9, 1, 0.01), limits=c(0.9, 1)) +
+  labs(title=TeX("Coverage $\\hat{\\beta_1}$"),x="Package", y = TeX("Coverage $\\hat{\\beta_1}$"))+
+  facet_wrap(~nrep, ncol=4)+
+  geom_boxplot(width=0.4)+
+  geom_hline(yintercept=0.95, colour="darkgray", linewidth=0.6)+ 
+  theme_bw() +
+  theme(legend.position="none")
 
 
 # combine plots
@@ -534,63 +686,6 @@ ggsave(filename = "output/Figure_b1_estimate_nreps.png", width = 11, height = 11
 
 
 
-# Now for n_species as the facet --
-
-# RMSE ---
-b1_rmse_plot <- res1 |> 
-  ggplot(aes(x=factor(model), y=rmse_b1, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("RMSE $\\hat{\\beta_1}$"),x="Package", y = TeX("RMSE $\\hat{\\beta_1}$"))+
-  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-
-# CI width ---
-b1_ci_width_plot <- res1 |> 
-  ggplot(aes(x=factor(model), y=mu_ci_width, fill=model, color=model)) + 
-  geom_boxplot(width=0.4)+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("95% confidence interval width $\\hat{\\beta_1}$"),x="Package", y = TeX("$\\hat{\\beta_1}$ CI width"))+
-  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+ ## alternatively I can use nrep here --- discuss!
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-
-# coverage ---
-b1_cov_plot <- cov.dat.b1 |> 
-  ggplot(aes(x=factor(model), y=cov_prop, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  scale_y_continuous(breaks=seq(0.9, 1, 0.01), limits=c(0.9, 1)) +
-  labs(title=TeX("Coverage $\\hat{\\beta_1}$"),x="Package", y = TeX("Coverage $\\hat{\\beta_1}$"))+
-  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.4)+
-  geom_hline(yintercept=0.95, colour="darkgray", linewidth=0.6)+ 
-  theme_bw() +
-  theme(legend.position="none")
-
-
-# combine plots
-fig_b1 <- b1_rmse_plot + 
-  b1_ci_width_plot + 
-  b1_cov_plot + 
-  plot_layout(ncol=1, guides = "collect") +
-  plot_annotation(tag_levels='A',
-                  theme = theme(plot.background = element_rect(fill = "white", colour = NA)))
-
-
-ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 9, height = 11)
-
-
-
-
 
 
 ################# 6. Plots/tables - variance components ##########################
@@ -599,72 +694,56 @@ ggsave(filename = "output/Figure_b1_estimate_nspecies.png", width = 9, height = 
 ### 1. Non-phylo variance estimate ---
 
 options(digits = 3, scipen = 5)
-# bias of variance estimate
-s2.sp1_plot_bias <- res1 |> 
-  filter(sigma2.s==0.25) |>
-  ggplot(aes(x=factor(model), y=s2_sp_bias, fill=model, color=model)) + 
+
+# RMSE of variance estimate 
+rmse.s2sp <- rbind(rmse.dat.s2sp, rmse.dat2.s2sp)
+
+s2.sp_plot1_rmse <- rmse.s2sp |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_s=0.25$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_s}"))+
+  labs(title=TeX(""),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_s}"))+
   #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
 
-# RMSE
-s2.sp1_plot_rmse <- res1 |> 
-  filter(sigma2.s==0.25) |>
-  ggplot(aes(x=factor(model), y=rmse_s2_sp, fill=model, color=model)) + 
+
+
+# for 0.25 settings
+s2.sp_plot1 <- res1 |> 
+  filter(sigma2.s==0.25, sigma2.p==0.25, nrep=="10 reps") |>
+  ggplot(aes(x=factor(model), y=s2_sp, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_s=0.25$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_s}"))+
-  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  labs(x="Package", y = TeX("$\\hat{\\sigma^2_s}"))+
+  scale_y_continuous(breaks=seq(0, 4, 1), limits=c(0, 4)) +
+  geom_hline(yintercept=0.25, colour="darkgray", linewidth=0.5)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# for 0.05 settings
+s2.sp_plot2 <- res1 |> 
+  filter(sigma2.s==0.05, sigma2.p==0.05, nrep=="10 reps") |>
+  ggplot(aes(x=factor(model), y=s2_sp, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_s=0.05$, $\\sigma^2_p=0.05$"),x="Package", y = TeX("$\\hat{\\sigma^2_s}"))+
+  scale_y_continuous(breaks=seq(0, 0.9, 0.05), limits=c(0, 0.9)) +
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   #facet_wrap(~nrep, ncol=4)+
+  geom_hline(yintercept=0.05, colour="darkgray", linewidth=0.5)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
-
-
-
-
-options(digits = 3, scipen = 5)
-# bias of variance estimate
-s2.sp2_plot_bias <- res1 |> 
-  filter(sigma2.s==0.05) |>
-  ggplot(aes(x=factor(model), y=s2_sp_bias, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_s=0.05$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_s}"))+
-  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-
-# RMSE
-s2.sp2_plot_rmse <- res1 |> 
-  filter(sigma2.s==0.05) |>
-  ggplot(aes(x=factor(model), y=rmse_s2_sp, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_s=0.05$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_s}"))+
-  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  #facet_wrap(~nrep, ncol=4)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
 
 
 
@@ -672,74 +751,55 @@ s2.sp2_plot_rmse <- res1 |>
 
 ### 2. Phylo variance estimate --
 
-
 options(digits = 3, scipen = 5)
-# bias of variance estimate
-s2.p1_plot_bias <- res1 |> 
-  filter(sigma2.p==0.25) |>
-  ggplot(aes(x=factor(model), y=s2_phylo_bias, fill=model, color=model)) + 
+
+# RMSE of variance estimate 
+rmse.s2p <- rbind(rmse.dat.s2p, rmse.dat2.s2p)
+
+s2.p_plot_rmse <- rmse.s2p |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_p=0.25$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_p}"))+
+  labs(title=TeX(""),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_p}"))+
   #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
   #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
 
-# RMSE
-s2.p1_plot_rmse <- res1 |> 
-  filter(sigma2.p==0.25) |>
-  ggplot(aes(x=factor(model), y=rmse_s2_phylo, fill=model, color=model)) + 
+# for 0.25 settings
+s2.p_plot1 <- res1 |> 
+  filter(sigma2.s==0.25, sigma2.p==0.25, nrep=="10 reps") |>
+  ggplot(aes(x=factor(model), y=s2_phylo, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_p=0.25$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_p}"))+
+  labs(title=TeX(""),x="Package", y = TeX("$\\hat{\\sigma^2_p}"))+
+  scale_y_continuous(breaks=seq(0, 4, 1), limits=c(0, 4)) +
+  geom_hline(yintercept=0.25, colour="darkgray", linewidth=0.5)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# for 0.05 settings
+s2.p_plot2 <- res1 |> 
+  filter(sigma2.s==0.05, sigma2.p==0.05, nrep=="10 reps") |>
+  ggplot(aes(x=factor(model), y=s2_phylo, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_s=0.05$, $\\sigma^2_p=0.05$"),x="Package", y = TeX("$\\hat{\\sigma^2_p}"))+
   #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   #facet_wrap(~nrep, ncol=4)+
+  geom_hline(yintercept=0.05, colour="darkgray", linewidth=0.5)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
-
-
-
-
-options(digits = 3, scipen = 5)
-# bias of variance estimate
-s2.p2_plot_bias <- res1 |> 
-  filter(sigma2.p==0.05) |>
-  ggplot(aes(x=factor(model), y=s2_phylo_bias, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_p=0.05$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_p}"))+
-  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
-
-# RMSE
-s2.p2_plot_rmse <- res1 |> 
-  filter(sigma2.p==0.05) |>
-  ggplot(aes(x=factor(model), y=rmse_s2_phylo, fill=model, color=model)) + 
-  geom_violin()+
-  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
-  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_p=0.05$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_p}"))+
-  #scale_y_continuous(breaks=seq(-0.5, 2, 0.5), limits=c(-0.5, 2)) +
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
-  #facet_wrap(~nrep, ncol=4)+
-  geom_boxplot(width=0.1)+
-  theme_bw() +
-  theme(legend.position="none")
-
 
 
 
@@ -749,69 +809,90 @@ s2.p2_plot_rmse <- res1 |>
 ### 3. Residual variance estimate ---
 
 
-
 options(digits = 3, scipen = 5)
-# bias 
-s2.e_plot_bias <- res1 |> 
-  #filter(model != "INLA") |>
-  ggplot(aes(x=factor(model), y=s2_resid_bias, fill=model, color=model)) + 
+
+# RMSE of variance estimate 
+rmse.s2e <- rbind(rmse.dat.s2e, rmse.dat2.s2e)
+
+s2.e_plot_rmse <- rmse.s2e |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_e=0.2$"),x="Package", y = TeX("Bias $\\hat{\\sigma^2_e}"))+
-  geom_hline(yintercept=0, colour="darkgray", linewidth=0.5)+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  labs(title=TeX(""),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_e}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-#ggsave(filename = "output/Figure_sigma2_resid_bias.png", width = 10, height = 7)
 
 
-# RMSE
-s2.e_plot_rmse <- res1 |> 
-  #filter(model != "INLA") |>
-  ggplot(aes(x=factor(model), y=rmse_s2_resid, fill=model, color=model)) + 
+# for 0.25 settings
+s2.e_plot1 <- res1 |> 
+  filter(sigma2.s==0.25, sigma2.p==0.25, nrep=="10 reps") |>
+  ggplot(aes(x=factor(model), y=s2_resid, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
-  labs(title=TeX("$\\sigma^2_e=0.2$"),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_e}"))+
-  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  labs(title=TeX(""),x="Package", y = TeX("$\\hat{\\sigma^2_e}"))+
+  scale_y_continuous(breaks=seq(0, 0.4, 0.05), limits=c(0.1, 0.3)) +
+  geom_hline(yintercept=0.2, colour="darkgray", linewidth=0.5)+
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
+
+# for 0.05 settings
+s2.e_plot2 <- res1 |> 
+  filter(sigma2.s==0.05, sigma2.p==0.05, nrep=="10 reps") |>
+  ggplot(aes(x=factor(model), y=s2_resid, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX("$\\sigma^2_s=0.05$, $\\sigma^2_p=0.05$"),x="Package", y = TeX("$\\hat{\\sigma^2_e}"))+
+  scale_y_continuous(breaks=seq(0.1, 0.4, 0.05), limits=c(0.1, 0.4)) +
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   #facet_wrap(~nrep, ncol=4)+
+  geom_hline(yintercept=0.2, colour="darkgray", linewidth=0.5)+
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
 
-#ggsave(filename = "output/Figure_sigma2_resid_rmse.png", width = 10, height = 7)
 
 
+
+# create labels for plots
+#TeX("$\\sigma^2_s=0.25$, $\\sigma^2_p=0.25$, $n_{rep}=10$")
 
 
 # Combine plots of variance estimates
-fig_variance <- (s2.sp1_plot_bias | s2.sp1_plot_rmse) /
-  (s2.p1_plot_bias  | s2.p1_plot_rmse) /
-  (s2.e_plot_bias   | s2.e_plot_rmse) +
+fig_variance <- s2.sp_plot1 / s2.p_plot1 / s2.e_plot1 +
   plot_layout(guides = "collect") +
   plot_annotation(
+    title = TeX("$\\sigma^2_s=0.25, \\sigma^2_p=0.25, n_{rep}=10$"),
     tag_levels = 'A',
-    theme = theme(plot.background = element_rect(fill = "white", colour = NA))
+    theme = theme(
+      plot.title = element_text(size = 14, color="black", face = "bold", hjust = 0.5),
+      plot.background = element_rect(fill = "white", colour = NA))
   )
 
-ggsave(filename = "output/Figure_variance_estimates.png", width = 8, height = 10)
+
+
+ggsave(filename = "output/Figure_variance_estimates_suppinfo.png", width = 9, height = 10)
 
 
 
 
 # Combine plots of variance estimates (Supp. Info)
-fig_variance <- (s2.sp2_plot_bias | s2.sp2_plot_rmse) /
-  (s2.p2_plot_bias  | s2.p2_plot_rmse) +
+fig_variance <- s2.sp_plot1_rmse / s2.p_plot_rmse / s2.e_plot1_rmse +
   plot_layout(guides = "collect") +
   plot_annotation(
     tag_levels = 'A',
     theme = theme(plot.background = element_rect(fill = "white", colour = NA))
   )
 
-ggsave(filename = "output/Figure_variance_estimates_suppinfo.png", width = 10, height = 8)
+ggsave(filename = "output/Figure_variance_estimates.png", width = 4, height = 7)
 
 
 
@@ -828,12 +909,12 @@ sample_var <- bind_rows(res1.sample_var, res2.sample_var)
 
 
 ## derive the bias Monte Carlo SE (per model, method and condition) for overall mean
-mu_mcse <- sample_var |> 
+b1_mcse <- sample_var |> 
   group_by(model, species_size) |> 
-  summarise(mean_mu = mean_mu,  #get mean estimate
-            mu_mcse = round(sqrt(mu_S2/n()),5)) |> 
+  summarise(#rmse_b1 = rmse_b1,
+            mcse_b1 = round(sqrt(b1_S2/n()),5)) |> 
   arrange(species_size) 
-print(xtable(mu_mcse, digits=c(0,2,2,2,4)), include.rownames=FALSE) ##save table for supporting information
+print(xtable(b1_mcse, digits=c(0,2,2,5,5)), include.rownames=FALSE) ##save table for supporting information
 
 
 
@@ -847,11 +928,11 @@ cov_mcse <- cov.dat |>
 print(xtable(cov_mcse, digits=c(0,2,2,3,4)), include.rownames=FALSE) ##save table for supporting information
 
 
-## derive the bias Monte Carlo SE (per model, method and condition) for overall mean
+## derive the bias Monte Carlo SE (per model, method and condition) for variance components
 s2_mcse <- sample_var |> 
   group_by(model, species_size) |> 
-  summarise(s2.s_mcse = round(sqrt(s2.s_S2/n()),5),
-            s2.p_mcse = round(sqrt(s2.p_S2/n()),5)) |> 
+  summarise(s2.p_mcse = round(sqrt(s2.p_S2/n()),5),
+            s2.e_mcse = round(sqrt(s2.e_S2/n()),5)) |> 
   arrange(species_size) 
-print(xtable(s2_mcse, digits=c(0,2,2,2,4)), include.rownames=FALSE) ##save table for supporting information
+print(xtable(s2_mcse, digits=c(0,3,3,3,3)), include.rownames=FALSE) ##save table for supporting information
 
