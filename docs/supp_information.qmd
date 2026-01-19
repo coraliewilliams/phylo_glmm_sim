@@ -170,7 +170,6 @@ To fit a PGLMM using glmmTMB package we specify the species-level random effect 
 The model output will provide the fixed effect estimates, random effect variance estimates, and the residual variance estimate. The random effect variance estimates will be on the standard deviation scale, so we square them to get the variance estimates.
 
 ```{r}
-#| cache: true 
 #| eval: true
 #| echo: true
 #| label: Simulated glmmTMB model
@@ -255,10 +254,15 @@ coefs_phyr$conf.high[2] <- coefs_phyr$Value[2] + coefs_phyr$Std.Error[2]*1.96
 Obtain the random effect and residual variance estimates. Note that `phyr` provides them on the standard deviation scale.
 
 ```{r}
+# get scaling factor for phylogenetic variance component
+V <- phylo.mat 
+V_scaled <- V / max(V)
+scale_factor <- max(V) * exp(determinant(V_scaled)$modulus[1] / nrow(V))
+
 # get phyr random effect variance estimates 
-var_re_phyr <- c(as.numeric(model_phyr$ss[2])^2, #phylogenetic 
-                 as.numeric(model_phyr$ss[1])^2, #non-phylogenetic 
-                 as.numeric(model_phyr$ss[3])^2) #residual 
+var_re_phyr <- c(as.numeric(model_phyr$s2r[2]/ scale_factor), #phylogenetic 
+                 as.numeric(model_phyr$s2r[1]), #non-phylogenetic 
+                 as.numeric(model_phyr$s2resid)) #residual 
 
 
 # combine into dataframe
@@ -785,6 +789,8 @@ By default, `mice::pool` uses the **Barnard–Rubin small-sample adjustment** (B
 Now we get the pooled `mitml` fixed effect estimates:
 
 ```{r}
+#| cache: true 
+
 ### with miml package
 library(mitml)
 fit.est <- mitml::testEstimates(fits, extra.pars=TRUE)
@@ -1043,7 +1049,7 @@ Load data bird spectrum data:
 #| label: Case study 1- Load data
 
 # Load bird spectrum data 
-bird_data <- read_delim("data/Spec_IndivReg_Coralie.csv", 
+bird_data <- read_delim("data/Spec_IndivReg.csv", 
     delim = ";", escape_double = FALSE, locale = locale(decimal_mark = ","), 
     trim_ws = TRUE)
 
@@ -1363,7 +1369,6 @@ For each model we will examine simulated standardised residuals using \texttt{DH
 
 
 ```{r}
-#| cache: true 
 
 # Fit models --------------
 
@@ -1543,7 +1548,6 @@ Here we want to model the absence or presence of carotenoid across all body regi
 We will fit two models: - Binomial model with a logit link function - Beta binomial model with a logit link function
 
 ```{r}
-#| cache: true
 
 # Fit models --------------
 
@@ -1688,7 +1692,6 @@ The ordinal trait is the percentage of body region with carotenoid presence. We 
 ##### Modelling carotenoid proportion per body region
 
 ```{r}
-#| cache: true 
 
 # load data
 ord.dat <- read_csv("data/ordinal_data_for_model.csv")
@@ -1760,7 +1763,6 @@ p.signal.m5
 Now look at the difference in the proportion of carotenoid colour between females and males from the ordinal beta model (m5), and plot the model-based estimate with its 95% confidence interval on the response scale.
 
 ```{r}
-
 emm_m5 <- emmeans(m5, ~ sex, type = "response")
 
 # pairwise contrast: Female vs Male
@@ -1824,8 +1826,6 @@ First, let's set up the phylogenetic correlation matrix for the `glmmTMB` model 
 We want to obtain a phylogenetic matrix that match all genera in the Ks dataset.m We will therefore remove all missing entries for the `Ks` trait and prune the tree and the dataset to have the same genera in both. 
 
 ```{r}
-#| cache: TRUE
-
 # create dat for ks (remove all missing values)
 ks.dat <- subset(hydra.dat, !is.na(Ks))
 all(is.na(ks.dat$genus))
@@ -2031,7 +2031,7 @@ group_diff <- contrast(emm_m6, method = "pairwise", reverse=TRUE) |>
 kS_plot <- 
   ggplot(group_diff, aes(y = contrast, x = ratio)) +
   geom_point(size = 3, colour = "#6BAF92") +
-  geom_errorbar(aes(xmin = lower.CL, xmax = upper.CL), 
+  geom_errorbar(aes(xmin = asymp.LCL, xmax = asymp.UCL), 
                 width = 0.2, colour = "#6BAF92") +
   geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
   labs(y = NULL, x = "",
@@ -2069,7 +2069,6 @@ First let's set up the models for glmmTMB:
 First, le's a phylogenetic matrix that match all genera in the P50 dataset. We will therefore remove all missing entries for the `Ks` trait and prune the tree and the dataset to have the same genera in both. 
 
 ```{r}
-#| cache: TRUE
 
 # create dat for ks (remove all missing values)
 p50.dat <- subset(hydra.dat, !is.na(P50))
