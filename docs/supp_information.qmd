@@ -1,6 +1,5 @@
 ---
 title: "Supporting Information for:\n Phylogenetic generalised linear mixed-effects modelling with glmmTMB R package"
-author: "Coralie Williams, Maeve McGillycuddy, Szymek Drobniak, Ben Bolker, David I. Warton, Shinichi Nakagawa"
 
 include-in-header:
   text: |
@@ -63,12 +62,6 @@ This webpage is organised in three sections:
 2. We then use the simulated data to illustrate compilation and sampling runtimes for the Bayesian MCMC models (see [Runtimes](#runtimes)).
 
 3. Finally, we present two case studies that apply these methods to ecological and evolutionary data, the first on bird colour traits and the second on plant traits (see [Case studies](#case-studies)).
-
-### Contact {#contact}
-
-For questions or error reports, contact Coralie Williams: 
-[coralie.williams@unsw.edu.au](mailto:coralie.williams@unsw.edu.au) or 
-[coraliewilliams@outlook.com](mailto:coraliewilliams@outlook.com)
 
 
 Last updated on: `r format(Sys.time(), '%d %B %Y')`
@@ -213,7 +206,7 @@ resid_var <- sigma(model_glmmTMB)^2
 # Combine results
 sigma2_tmb <- data.frame(
   model = "glmmTMB",
-  group = c("phylo", "species", "Residual"),
+  group = c("species", "phylo", "Residual"),
   term = "var",
   estimate = c(var_est, resid_var),
   std.error = c(var_se, NA),
@@ -2266,6 +2259,5 @@ details(si, summary = 'Current session info', open = FALSE)
 ```
 
 > **Note**  
-> This site may contain small mistakes. Please contact [Coralie Williams](#contact) to report any issues or errors. We aim to update this site regularly. 
 
 Bird icon created by <a href="https://www.flaticon.com/free-icons/bird" title="bird icons">Smashicons - Flaticon</a>
