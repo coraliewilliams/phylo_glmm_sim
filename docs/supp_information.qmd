@@ -23,12 +23,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-<!-- -   make sure to use package name:: as much as possible -->
-<!-- setwd("C:/Users/z5394590/OneDrive - UNSW/Documents/Projects/phylo_glmm_sim/docs") -->
-<!-- page-layout: full -->
-<!-- <img src="robin.png" alt="Robin icon" width="25"> -->
-
-
 # Overview 
 
 ```{r setup}

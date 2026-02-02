@@ -3,17 +3,17 @@
 
 ################### Load results #############################
 
-library(ggplot2);library(devtools);library(cowplot);library(ggdark);theme_set(dark_theme_bw())
-library(ggdist);library(tidyverse);library(dplyr);library(patchwork); library(scales);
+library(ggplot2);library(devtools);library(cowplot);library(ggdist);
+library(tidyverse);library(dplyr);library(patchwork); library(scales);
 library(latex2exp); library(xtable); library(grid)
 
 #---
 # load results set 1a (repeated measures)
-load("~/PhD/3_PhyloTMB/sims/sim_set1a_results_pglmm.RDATA")
+load("~/PhD/3_PhyloTMB/sims/results/sim_set1a_results_pglmm.RDATA")
 res1.dat <- dat
 
 # load results set 2a (repeated measures)
-load("~/PhD/3_PhyloTMB/sims/sim_set2a_results_pglmm.RDATA")
+load("~/PhD/3_PhyloTMB/sims/results/sim_set2a_results_pglmm.RDATA")
 res2.dat <- dat
 
 
@@ -696,9 +696,7 @@ ggsave(filename = "output/Figure_b1_estimate_nreps.png", width = 11, height = 11
 options(digits = 3, scipen = 5)
 
 # RMSE of variance estimate 
-rmse.s2sp <- rbind(rmse.dat.s2sp, rmse.dat2.s2sp)
-
-s2.sp_plot1_rmse <- rmse.s2sp |> 
+s2.sp_plot1_rmse <- rmse.dat.s2sp |> 
   ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
@@ -710,6 +708,18 @@ s2.sp_plot1_rmse <- rmse.s2sp |>
   theme_bw() +
   theme(legend.position="none")
 
+
+s2.sp_plot1_rmse.species <- rbind(rmse.dat.s2sp, rmse.dat2.s2sp) |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX(""),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_s}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
 
 
 
@@ -754,9 +764,7 @@ s2.sp_plot2 <- res1 |>
 options(digits = 3, scipen = 5)
 
 # RMSE of variance estimate 
-rmse.s2p <- rbind(rmse.dat.s2p, rmse.dat2.s2p)
-
-s2.p_plot_rmse <- rmse.s2p |> 
+s2.p_plot_rmse <- rmse.dat.s2p |> 
   ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
@@ -767,6 +775,19 @@ s2.p_plot_rmse <- rmse.s2p |>
   geom_boxplot(width=0.1)+
   theme_bw() +
   theme(legend.position="none")
+
+s2.p_plot_rmse.species <- rbind(rmse.dat.s2p, rmse.dat2.s2p) |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX(""),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_p}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
+  #facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
+
 
 
 # for 0.25 settings
@@ -812,9 +833,7 @@ s2.p_plot2 <- res1 |>
 options(digits = 3, scipen = 5)
 
 # RMSE of variance estimate 
-rmse.s2e <- rbind(rmse.dat.s2e, rmse.dat2.s2e)
-
-s2.e_plot_rmse <- rmse.s2e |> 
+s2.e_plot_rmse <- rmse.dat.s2e |> 
   ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
   geom_violin()+
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
@@ -825,6 +844,18 @@ s2.e_plot_rmse <- rmse.s2e |>
   theme_bw() +
   theme(legend.position="none")
 
+
+s2.e_plot_rmse_species <- rbind(rmse.dat.s2e, rmse.dat2.s2e) |> 
+  ggplot(aes(x=factor(model), y=rmse, fill=model, color=model)) + 
+  geom_violin()+
+  scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
+  scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
+  labs(title=TeX(""),x="Package", y = TeX("RMSE $\\hat{\\sigma^2_e}"))+
+  #scale_y_continuous(breaks=seq(-0.5, 3, 0.5), limits=c(-0.5, 3)) +
+  facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
+  geom_boxplot(width=0.1)+
+  theme_bw() +
+  theme(legend.position="none")
 
 
 # for 0.25 settings
@@ -877,15 +908,13 @@ fig_variance <- s2.sp_plot1 / s2.p_plot1 / s2.e_plot1 +
       plot.background = element_rect(fill = "white", colour = NA))
   )
 
-
-
 ggsave(filename = "output/Figure_variance_estimates_suppinfo.png", width = 9, height = 10)
 
 
 
 
 # Combine plots of variance estimates (Supp. Info)
-fig_variance <- s2.sp_plot1_rmse / s2.p_plot_rmse / s2.e_plot1_rmse +
+fig_variance_rmse <- s2.sp_plot1_rmse / s2.p_plot_rmse / s2.e_plot_rmse +
   plot_layout(guides = "collect") +
   plot_annotation(
     tag_levels = 'A',
