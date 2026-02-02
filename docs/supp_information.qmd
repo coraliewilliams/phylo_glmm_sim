@@ -152,9 +152,16 @@ head(dat)
 
 ### Run model with `glmmTMB`
 
-To fit a PGLMM using glmmTMB package we specify the species-level random effect with phylogenetic relatedness using the `propto` covariance structure. In the first part we specify the random intercept (`0 + species`), followed by the grouping variable `g` (which we assume here as constant), and then the phylogenetic correlation matrix `phylo.mat`.
+To fit a PGLMM using `glmmTMB` R package we specify the species-level random effect with phylogenetic relatedness using the `propto` covariance structure (McGillycuddy, 2023; Kristensen & McGillycuddy, 2025).
 
-The model output will provide the fixed effect estimates, random effect variance estimates, and the residual variance estimate. The random effect variance estimates will be on the standard deviation scale, so we square them to get the variance estimates.
+The `propto(0 + species| g, phylo.mat)` covariance structure has three notable components:
+
+(1) To the left of the bar, we specify the random intercept at the species level (`0 + species`). It is very important to add `0 +` to appropriately model a multivariate species random effect. See explanations as to why this is necessary here:  [https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html#construction-of-structured-covariance-matrices](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html#construction-of-structured-covariance-matrices).
+
+(2) To the right of the bar, we first need to specify a factor variable, here denoted `g`, whose levels correspond to independent random‐effects vectors with shared covariance parameters. For PGLMM, it is specified as a single level for all observations (i.e. `dat$g <- 1`), so that a single random‐effect is fitted to the entire dataset. 
+
+(3) After the comma on the right side of the bar, we specify the phylogenetic *correlation* matrix `phylo.mat`. We use a correlation matrix rather than a covariance matrix to avoid estimating a separate variance component per species (which would arise from each species variances). Instead, the standardized correlation matrix (with 1s on the diagonal) allows us to estimate a single phylogenetic variance component $\sigma^2_{p}$ that captures the overall magnitude of phylogenetic signal.
+
 
 ```{r}
 #| eval: true
@@ -238,7 +245,7 @@ coefs_phyr$conf.low[2] <- coefs_phyr$Value[2] - coefs_phyr$Std.Error[2]*1.96
 coefs_phyr$conf.high[2] <- coefs_phyr$Value[2] + coefs_phyr$Std.Error[2]*1.96
 ```
 
-Obtain the random effect and residual variance estimates. Note that `phyr` provides them on the standard deviation scale.
+Obtain the random effect and residual variance estimates. Note that the phylogenetic variance estimate from `phyr` needs to be scaled by a factor to obtain the correct variance estimate.
 
 ```{r}
 # get scaling factor for phylogenetic variance component

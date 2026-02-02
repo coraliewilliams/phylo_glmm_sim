@@ -61,7 +61,7 @@ res2.dat_conv_summary <- tab.conv |>
 # merge convergence info
 conv.tab <- full_join(res1.dat_conv_summary, res2.dat_conv_summary, by = "model") %>%
   rename(Package = model) %>%
-  select(Package, `25`, `50`, `100`, `200`, `400`, `800`)
+  dplyr::select(Package, `25`, `50`, `100`, `200`, `400`, `800`)
 
 
 # Create summary tables of convergence % for Supp. information
@@ -731,7 +731,7 @@ s2.sp_plot1 <- res1 |>
   scale_color_manual(values=c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373")) +
   scale_fill_manual(values=alpha(c("#56B4E9", "#7AB47C", "#FBBF24", "#B47AA5", "#E57373"), 0.4)) + 
   labs(x="Package", y = TeX("$\\hat{\\sigma^2_s}"))+
-  scale_y_continuous(breaks=seq(0, 4, 1), limits=c(0, 4)) +
+  scale_y_continuous(breaks=seq(0, 3.5, 1), limits=c(0, 3.5)) +
   geom_hline(yintercept=0.25, colour="darkgray", linewidth=0.5)+
   facet_wrap(~species_lab, ncol=3, labeller=label_parsed)+
   geom_boxplot(width=0.1)+
@@ -943,7 +943,7 @@ b1_mcse <- sample_var |>
   summarise(#rmse_b1 = rmse_b1,
             mcse_b1 = round(sqrt(b1_S2/n()),5)) |> 
   arrange(species_size) 
-print(xtable(b1_mcse, digits=c(0,2,2,5,5)), include.rownames=FALSE) ##save table for supporting information
+print(xtable(b1_mcse, digits=c(0,2,2,5,5,5)), include.rownames=FALSE) ##save table for supporting information
 
 
 
@@ -954,14 +954,15 @@ cov_mcse <- cov.dat |>
   summarise(mean_cov = mean(cov_prop),  # Compute the mean coverage
             cov_mcse = round(sqrt((mean_cov * (1 - mean_cov)) / n()), 5)) |>  # Apply MCSE formula
   arrange(species_size) 
-print(xtable(cov_mcse, digits=c(0,2,2,3,4)), include.rownames=FALSE) ##save table for supporting information
+print(xtable(cov_mcse, digits=c(0,2,2,3,4,4)), include.rownames=FALSE) ##save table for supporting information
 
 
 ## derive the bias Monte Carlo SE (per model, method and condition) for variance components
 s2_mcse <- sample_var |> 
   group_by(model, species_size) |> 
-  summarise(s2.p_mcse = round(sqrt(s2.p_S2/n()),5),
+  summarise(s2.s_mcse = round(sqrt(s2.s_S2/n()),5),
+            s2.p_mcse = round(sqrt(s2.p_S2/n()),5),
             s2.e_mcse = round(sqrt(s2.e_S2/n()),5)) |> 
   arrange(species_size) 
-print(xtable(s2_mcse, digits=c(0,3,3,3,3)), include.rownames=FALSE) ##save table for supporting information
+print(xtable(s2_mcse, digits=c(0,3,3,3,3,3)), include.rownames=FALSE) ##save table for supporting information
 
