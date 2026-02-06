@@ -342,15 +342,21 @@ coefs_inla <- if (!is.null(model_inla)) {
 
 
 # get phyr variance estimates (model output is on standard deviation scale)
+
+#scaling factor for phylogenetic variance component 
+V <- phylo.mat 
+V_scaled <- V / max(V)
+scale_factor <- max(V) * exp(determinant(V_scaled)$modulus[1] / nrow(V))
+
 sigma2_phyr <- if (!is.null(model_phyr)) {
   data.frame(
     model = "phyr",
     group = c("phylo", "species", "Residual"),
     term = "var",
-    estimate = c(model_phyr$ss[2]^2, #phylogenetic 
-                 model_phyr$ss[1]^2, #non-phylogenetic
-                 model_phyr$ss[3]^2),#residual 
-    std.error = NA, conf.low = NA, conf.high = NA  ##currently not available to my knowledge, could bootstrap tho..
+    estimate = c(model_phyr$s2r[2]/scale_factor,  #phylogenetic (UPDATED FOR SCALING)
+                 model_phyr$s2r[1],   #non-phylogenetic
+                 model_phyr$s2resid), #residual 
+    std.error = NA, conf.low = NA, conf.high = NA  ##currently not available, could bootstrap tho..
   )
 } else data.frame(
   model = "phyr",
