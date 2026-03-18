@@ -85,10 +85,10 @@ First we specify the parameter values for one simulation run. We assume the foll
 
 ```{r}
 ### set up model parameters 
-seed <- 1         
+seed <- 123         
 b0 <- 1           # fixed effect intercept
 b1 <- 1.5         # fixed effect slope
-k.species <- 30   # number of species
+k.species <- 100   # number of species
 n.reps <- 10      # number of repeated measures per species (assuming a balanced design)
 sigma2.n <- 0.25  # variance of non-phylogenetic effect
 sigma2.p <- 0.25  # variance of phylogenetic effect
@@ -103,8 +103,6 @@ Simulate data based on these parameter values:
 #| eval: true
 #| echo: true
 
-set.seed(seed)
-
 # set up k.obs (number of observations per species)
 k.obs <- n.reps # assumes a balanced design
 # species id 
@@ -113,10 +111,12 @@ sp.id <- rep(seq_len(k.species), times=k.obs)
 n <- length(sp.id)
 
 # simulate simple dataframe with covariate (x) variable
+set.seed(seed)
 x <- runif(n, 10, 20) 
 dat <- data.frame(obs = 1:n, x = x, species = sp.id)
 
 # simulate tree and obtain phylo matrix
+set.seed(seed)
 tree <- ape::rtree(k.species, tip.label = seq_len(k.species))
 tree <- ape::compute.brlen(tree, power=1) # power of 1 means ultra-metric tree
 phylo.mat <- ape::vcv(tree, corr = TRUE) # we want a correlation matrix (bounded by -1 and 1) ultrametric tree
@@ -124,9 +124,9 @@ phylo.mat <- phylo.mat[order(as.numeric(rownames(phylo.mat))), order(as.numeric(
 
 
 # Simulate response variable (phen) based on cofactor and phylogenetic matrix
-u.s <- rnorm(k.species, 0, sqrt(sigma2.n))[sp.id]
-u.p <- MASS::mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
-ei <- rnorm(n, 0, sqrt(sigma2.e))
+set.seed(seed); u.s <- rnorm(k.species, 0, sqrt(sigma2.n))[sp.id]
+set.seed(seed); u.p <- MASS::mvrnorm(1, mu=rep(0, k.species), Sigma=sigma2.p*phylo.mat)[sp.id]
+set.seed(seed); ei <- rnorm(n, 0, sqrt(sigma2.e))
 
 # get estimates of y
 yi <- b0 + b1*x + u.s + u.p + ei
@@ -138,7 +138,8 @@ dat$species <- factor(dat$species) # format species variable for models
 dat$sp <- dat$species # create sp variable (for phyr)
 dat$g <- 1 # add variable g constant (for glmmTMB)
 
-save(dat, tree, phylo.mat, file = "simulated_data.RData")
+#
+#save(dat, tree, phylo.mat, file = "simulated_data.RData")
 
 ```
 
@@ -286,9 +287,7 @@ The `ginverse` argument is used to specify the inverse of the phylogenetic covar
 #| label: Simulated MCMCglmm model
 
 # get precision phylo matrix and order rows
-phylo.prec.mat <- MCMCglmm::inverseA(tree, nodes = "TIPS", scale = TRUE)$Ainv
-phylo.prec.mat <- phylo.prec.mat[order(as.numeric(rownames(phylo.prec.mat))),
-                                 order(as.numeric(rownames(phylo.prec.mat)))]
+phylo.prec.mat <- MCMCglmm::inverseA(tree)$Ainv
 
 # set priors for two random effects
 prior <- list(G=list(G1=list(V=1,nu=1,alpha.mu=0,alpha.V=1000), 
