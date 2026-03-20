@@ -303,9 +303,9 @@ time.mcmc <- system.time({
                          prior = prior,
                          data = dat,
                          verbose = FALSE,
-                         nitt = 303000, # increase default by x30
+                         nitt = 103000, # increase default by x10
                          burnin = 3000, # default
-                         thin = 10) # default
+                         thin = 1) 
 })
 
 ```
@@ -592,29 +592,7 @@ head(dat.m)
 
 So we now have a reduced dataset of 30 rows, with one value per species. 
 
-
-If we now try to fit the same phylogenetic GLMM as before, including both a random intercept for species and a phylogenetic effect:
-
-```{r}
-m <- glmmTMB(
-  yi_mean ~ x_mean + (1|species) + propto(0 + species|g, phylo.mat),
-  data = dat.m,
-  REML = TRUE
-)
-
-# fixed effect estimates
-as.data.frame(confint(m, parm="beta_"))
-
-# random component estimates (on SD scale)
-as.data.frame(confint(m, parm="theta_"))
-
-# residual variance estimate
-sigma(m)^2
-
-```
-
-This model converged, but it returned very wide uncertainty intervals for the non-phylogenetic variance component (on the standard deviation scale). This reflects the fact that, with only one observation per species, the species intercept and the phylogenetic effect are not separately identifiable by the model. In some cases, the model may even fail to converge, highlighting the redundancy of including both terms.
-
+As there is only one observation per species, we cannot fit a non-phylogenetic effect, as it won't be separately identifiable from the phylogenetic effect. Therefore, we only include the phylogenetic random effect in the model (see Equation 3 in the manuscript). The model is specified as follows:
 
 ```{r}
 m <- glmmTMB(
@@ -623,6 +601,42 @@ m <- glmmTMB(
   REML = TRUE
 )
 
+# > summary(m)
+#  Family: gaussian  ( identity )
+# Formula:          yi_mean ~ x_mean + propto(0 + species | g, phylo.mat)
+# Data: dat.m
+# 
+#       AIC       BIC    logLik -2*log(L)  df.resid 
+#     171.0     181.4     -81.5     163.0        96 
+# 
+# Random effects:
+# 
+# Conditional model:
+#  Groups   Name      Variance Std.Dev. Corr                                            
+#  g        species1  0.0855   0.292                                                    
+#           species2  0.0855   0.292    0.87                                            
+#           species3  0.0855   0.292    0.87 0.96                                       
+#           species4  0.0855   0.292    0.00 0.00 0.00                                  
+#           species5  0.0855   0.292    0.67 0.67 0.67 0.00                             
+#           species6  0.0855   0.292    0.00 0.00 0.00 0.70 0.00                        
+#           species7  0.0855   0.292    0.47 0.47 0.47 0.00 0.47 0.00                   
+#           species8  0.0855   0.292    0.31 0.31 0.31 0.00 0.31 0.00 0.31              
+#           species9  0.0855   0.292    0.80 0.80 0.80 0.00 0.67 0.00 0.47 0.31         
+#           species10 0.0855   0.292    0.31 0.31 0.31 0.00 0.31 0.00 0.31 0.97 0.31    
+#           ...       ...      ...      ...  ...  ...  ...  ...  ...  ...  ...  ...  ...
+#  Residual           0.2528   0.503                                                    
+# Number of obs: 100, groups:  g, 1
+# 
+# Dispersion estimate for gaussian family (sigma^2): 0.253 
+# 
+# Conditional model:
+#             Estimate Std. Error z value Pr(>|z|)    
+# (Intercept)   1.8540     0.8537    2.17     0.03 *  
+# x_mean        1.4596     0.0558   26.14   <2e-16 ***
+# ---
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+
 # fixed effect estimates
 as.data.frame(confint(m, parm="beta_"))
 
@@ -633,7 +647,7 @@ as.data.frame(confint(m, parm="theta_"))
 sigma(m)^2
 ```
 
-When the non-phylogenetic component is removed, the estimate of the phylogenetic effect remains unchanged, the fixed effects are identical, and the residual variance increases to absorb the variability that can no longer be partitioned between the two random effects.
+There is evidence of a positive association between `x` and the response, with an estimated effect of 1.46 (95% CI: 1.35–1.57). The phylogenetic variance component estimate is 0.08 and the residual variance estimate is 0.25. Hence the proportion of total variance explained by evolutionary relationships (i.e. phylogenetic signal) is $0.0855/(0.2528+0.0855) = 0.25$.  
 
 
 # Random slope
